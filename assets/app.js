@@ -140,6 +140,7 @@
     naturalsOnly: true,
     moreShapes: false,
     returnMode: null,
+    topic: null,
     quiz: null
   };
 
@@ -154,6 +155,7 @@
   if (["chord", "scale", "interval"].includes(modeParam)) {
     state.mode = modeParam;
     if (state.tab === "home") state.tab = "circle";
+    if (state.tab === "neck") state.neckMode = modeParam === "interval" ? "notes" : modeParam;
   }
 
   /* ------------------------------------------------ вывод данных */
@@ -656,7 +658,7 @@
     return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Гриф гитары, 0–12 лад">${out.join("")}</svg>`;
   }
 
-  function noteMap(notes) {
+  function noteMap(notes, mono) {
     const map = new Array(12).fill(null);
     const classes = ["d1", "d2", "d3", "d4"];
     const seen = new Map();
@@ -664,7 +666,7 @@
       if (seen.has(n.pc)) return;
       const idx = seen.size;
       seen.set(n.pc, true);
-      map[n.pc] = { name: n.name, deg: n.deg, cls: classes[Math.min(idx, 3)] };
+      map[n.pc] = { name: n.name, deg: n.deg, cls: mono ? (idx === 0 ? "d1" : "d3") : classes[Math.min(idx, 3)] };
     });
     return map;
   }
@@ -692,11 +694,150 @@
   };
 
   const MODULES = [
-    { n: "01", name: "Интервалы", count: "13 · от примы до октавы", tab: "circle", mode: "interval", glyph: SVG('<circle cx="8" cy="17" r="3"/><circle cx="16" cy="7" r="3"/><path d="M10.4 15.2c1.8-2.6 3.4-4.5 4.6-5.6"/>', 26) },
-    { n: "02", name: "Аккорды", count: "12 · трезвучия и септы", tab: "circle", mode: "chord", glyph: SVG('<path d="M12 4.5 20.2 19H3.8L12 4.5Z"/><circle cx="12" cy="4.5" r="1.9" fill="currentColor" stroke="none"/><circle cx="20.2" cy="19" r="1.9" fill="currentColor" stroke="none"/><circle cx="3.8" cy="19" r="1.9" fill="currentColor" stroke="none"/>', 26) },
-    { n: "03", name: "Гаммы", count: "12 ладов · от ионийского", tab: "circle", mode: "scale", glyph: SVG('<path d="M4 20v-5M9.3 20V9M14.6 20v-7M20 20V4"/>', 26) },
-    { n: "04", name: "Ноты на грифе", count: "6 струн · 12 ладов", tab: "neck", mode: "notes", glyph: SVG('<path d="M3 7h18M3 12h18M3 17h18M7.5 4v16M12 4v16M16.5 4v16"/>', 26) }
+    { n: "01", name: "Интервалы", count: "13 · от примы до октавы", tab: "circle", mode: "interval", topic: "intervals", glyph: SVG('<circle cx="8" cy="17" r="3"/><circle cx="16" cy="7" r="3"/><path d="M10.4 15.2c1.8-2.6 3.4-4.5 4.6-5.6"/>', 26) },
+    { n: "02", name: "Аккорды", count: "12 · трезвучия и септы", tab: "circle", mode: "chord", topic: "chords", glyph: SVG('<path d="M12 4.5 20.2 19H3.8L12 4.5Z"/><circle cx="12" cy="4.5" r="1.9" fill="currentColor" stroke="none"/><circle cx="20.2" cy="19" r="1.9" fill="currentColor" stroke="none"/><circle cx="3.8" cy="19" r="1.9" fill="currentColor" stroke="none"/>', 26) },
+    { n: "03", name: "Гаммы", count: "12 ладов · от ионийского", tab: "circle", mode: "scale", topic: "scales", glyph: SVG('<path d="M4 20v-5M9.3 20V9M14.6 20v-7M20 20V4"/>', 26) },
+    { n: "04", name: "Ноты на грифе", count: "6 струн · 12 ладов", tab: "neck", mode: "notes", topic: "neck", glyph: SVG('<path d="M3 7h18M3 12h18M3 17h18M7.5 4v16M12 4v16M16.5 4v16"/>', 26) }
   ];
+
+  /* ------------------------------------------------ теория: тексты разделов */
+  const THEORY = {
+    intervals: {
+      title: "Интервалы",
+      kicker: "раздел 01 · расстояние между нотами",
+      lead: "Интервал — это расстояние между двумя нотами. Аккорды и гаммы складываются именно из интервалов, поэтому начинать проще с них.",
+      blocks: [
+        { h: "Считаем полутонами", p: "Самый маленький шаг — <b>полутон</b>: один лад на грифе, одна соседняя клавиша на пианино. Октава — 12 полутонов, и между ними 11 промежутков, у каждого своё имя." },
+        { h: "Шпаргалка", p: "м.2 — 1 · б.2 — 2 · м.3 — 3 · б.3 — 4 · ч.4 — 5 · тритон — 6 · ч.5 — 7 · м.6 — 8 · б.6 — 9 · м.7 — 10 · б.7 — 11 · октава — 12." },
+        { h: "Как слышать", p: "Секунда — две ноты рядом. Терция — «через одну», она и делает аккорд мажорным или минорным. Квинта — самая устойчивая после октавы опора. Тритон — колючий, звучит как вопрос без ответа." }
+      ],
+      tips: [
+        "Октава на грифе: +2 струны и +2 лада (с 6-й на 4-ю, с 5-й на 3-ю), +2 струны и +3 лада для 4→2 и 3→1.",
+        "Квинта — та же нота на соседней струне через 5 ладов, кроме перехода G→B: там 4."
+      ],
+      cta: { label: "Показать на круге", act: "open-circle", mode: "interval" }
+    },
+    chords: {
+      title: "Аккорды",
+      kicker: "раздел 02 · три ноты и больше",
+      lead: "Аккорд — это несколько нот, взятых вместе. Почти всё строится по терциям от тоники: <b>1 — 3 — 5</b>, а дальше добавляются септимы, сексты и замены.",
+      blocks: [
+        { h: "Трезвучие: 1–3–5", p: "Мажор: 4 полутона до терции и 3 до квинты. Минор: 3 и 4. Разница между «светлым» и «тёмным» — одна нота, поэтому так легко ошибиться на слух, но так же легко перестроить аккорд." },
+        { h: "Что значит цифра", p: "Голая буква — мажор, <b>m</b> — минор, <b>7</b> — септима (в джазе почти всегда малая), <b>maj7</b> — большая септима, <b>sus</b> — терцию заменили на 2 или 4, <b>add</b> — ноту добавили, ничего не убирая." }
+      ],
+      typesTitle: "Обозначения под рукой",
+      types: [
+        ["C", "мажорное трезвучие", "1 · 3 · 5"],
+        ["Cm", "минорное трезвучие", "1 · ♭3 · 5"],
+        ["C7", "доминантсептаккорд", "1 · 3 · 5 · ♭7"],
+        ["Cmaj7", "большой мажорный септаккорд", "1 · 3 · 5 · 7"],
+        ["Cm7", "малый минорный септаккорд", "1 · ♭3 · 5 · ♭7"],
+        ["Cdim", "уменьшенный", "1 · ♭3 · ♭5"],
+        ["Caug", "увеличенный", "1 · 3 · ♯5"],
+        ["Csus4", "с квартой вместо терции", "1 · 4 · 5"],
+        ["Csus2", "со второй вместо терции", "1 · 2 · 5"],
+        ["C6", "с секстой", "1 · 3 · 5 · 6"],
+        ["Cadd9", "с добавленной ноной", "1 · 3 · 5 · 9"],
+        ["Cm7♭5", "полууменьшенный", "1 · ♭3 · ♭5 · ♭7"]
+      ],
+      tips: [
+        "Cmaj7 — это C + E + G + B. Если видите просто «7», сверху будет си-бемоль, а не си.",
+        "sus4 разрешается в обычный мажор: Gsus4 → G. Отсюда ощущение «подвешенности» перед ударом."
+      ],
+      cta: { label: "Показать на круге", act: "open-circle", mode: "chord" }
+    },
+    scales: {
+      title: "Гаммы",
+      kicker: "раздел 03 · шаблон из семи нот",
+      lead: "Гамма — семь нот от тоники до октавы. Это не «правильные» ноты, а <b>шаблон расстояний</b>: одинаковый шаблон от любой ноты даёт родственную гамму.",
+      blocks: [
+        { h: "Шаблоны", p: "Мажор: 2–2–1–2–2–2–1. Натуральный минор: 2–1–2–2–1–2–2. Пентатоника — пять нот без полутонов, её удобно играть соло: почти невозможно «промахнуться»." },
+        { h: "Лады — это одна гамма", p: "Дорийский, фригийский, лидийский и остальные — тот же набор нот мажора, но сыгранный от другой ступени. Поэтому они родственники: меняется тоника и настроение, а ноты те же." }
+      ],
+      tips: [
+        "Тоники на 6-й струне: 3-й лад — G, 5-й — A, 8-й — C, 10-й — D. Дальше гамма строится от них.",
+        "На грифе гамма — это 3 ноты на струну, кроме перехода G→B: там 2."
+      ],
+      table: {
+        title: "Семь ладов мажора",
+        cols: ["Лад", "Ступень", "Настроение"],
+        rows: [
+          ["Ионийский", "1", "мажор как он есть"],
+          ["Дорийский", "2", "минор с бодрой секстой"],
+          ["Фригийский", "3", "испанский, фламенко"],
+          ["Лидийский", "4", "мечтательный, «кино»"],
+          ["Миксолидийский", "5", "блюз и рок"],
+          ["Эолийский", "6", "натуральный минор"],
+          ["Локрийский", "7", "неустойчивый, редкий"]
+        ]
+      },
+      cta: { label: "Показать на круге", act: "open-circle", mode: "scale" }
+    },
+    neck: {
+      title: "Ноты на грифе",
+      kicker: "раздел 04 · карта инструмента",
+      lead: "Строй гитары — E–A–D–G–B–E от 6-й струны к 1-й. Между соседними струнами кварта, и только между G и B — большая терция.",
+      blocks: [
+        { h: "Октава — 12 ладов", p: "На 12-м ладу звучит та же нота, что открытая струна. Поэтому гриф учат не как 72 точки, а как повторяющийся круг из 12 нот." },
+        { h: "Ориентиры на 6-й струне", p: "1 — F, 3 — G, 5 — A, 7 — B, 8 — C, 10 — D, 12 — E. Эти точки — каркас для аккордов с басом на шестой, а от них легко находить соседние ноты." },
+        { h: "Почему строй такой", p: "Кварты между струнами дают одинаковые формы аккордов по всему грифу: сдвинули на два лада — получили тот же аккорд выше. Исключение G→B появилось, чтобы аккорды ложились под пальцы, а не растягивались на пять ладов." }
+      ],
+      tips: [
+        "Октава: +2 струны и +2 лада; для 3→1 — +2 струны и +3 лада.",
+        "Одна и та же нота на соседней струне — через 5 ладов, кроме G→B: там 4."
+      ],
+      table: {
+        title: "Открытые струны и 5-й лад",
+        cols: ["Струна", "Открытая", "5-й лад"],
+        rows: [
+          ["6-я", "E", "A"],
+          ["5-я", "A", "D"],
+          ["4-я", "D", "G"],
+          ["3-я", "G", "C"],
+          ["2-я", "B", "E"],
+          ["1-я", "e", "A"]
+        ]
+      },
+      cta: { label: "Открыть гриф", act: "open-neck", mode: "notes" }
+    }
+  };
+
+  function theoryScreen(id) {
+    const t = THEORY[id];
+    if (!t) return homeScreen();
+    return `
+      <button class="back-chip" data-act="theory-back">${ICON.back}Все разделы</button>
+      <div class="shead">
+        <div>
+          <div class="kicker">${t.kicker}</div>
+          <h1>${t.title}<span class="dot-accent">.</span></h1>
+        </div>
+      </div>
+      <p class="lead lead-wide">${t.lead}</p>
+      <div class="theory">
+        ${t.blocks.map((b) => `<h2>${b.h}</h2><p>${b.p}</p>`).join("")}
+        ${t.types ? `
+          <h2>${t.typesTitle}</h2>
+          <div class="ctype">
+            ${t.types.map(([sym, name, formula]) => `
+              <div class="ctype-row"><code>${sym}</code><span><i>${name}</i> · ${formula}</span></div>`).join("")}
+          </div>` : ""}
+        ${t.table ? `
+          <h2>${t.table.title}</h2>
+          <div class="dtable" style="--cols:${t.table.cols.length}">
+            <div class="dtable-row is-head">
+              ${t.table.cols.map((c) => `<span>${c}</span>`).join("")}
+            </div>
+            ${t.table.rows.map((r) => `
+              <div class="dtable-row">${r.map((c) => `<span>${c}</span>`).join("")}</div>`).join("")}
+          </div>` : ""}
+        ${t.tips.map((tip) => `<div class="tip"><div class="k">лайфхак</div><p>${tip}</p></div>`).join("")}
+      </div>
+      <button class="btn-primary wide" data-act="${t.cta.act}" data-mode="${t.cta.mode}">${t.cta.label}</button>
+      <div style="height:10px"></div>
+    `;
+  }
+
 
   /* маленькое колесо для карточки «аккорд дня» */
   function miniWheelHTML(chord, size = 96) {
@@ -721,6 +862,7 @@
   }
 
   function homeScreen() {
+    if (state.topic) return theoryScreen(state.topic);
     const dayChord = (() => {
       const prev = { root: state.root, chord: state.chord, inv: state.inv };
       state.root = 0; state.chord = 3; state.inv = 0;
@@ -737,11 +879,11 @@
         </div>
         <div class="meta">4 раздела<br>без интернета</div>
       </div>
-      <p class="lead">Двенадцать нот — и всё, что из них строится: интервалы, аккорды, гаммы. Начните с круга.</p>
+      <p class="lead">Двенадцать нот — и всё, что из них строится: интервалы, аккорды, гаммы. Начните с круга или откройте раздел.</p>
 
       <div class="mod-grid">
         ${MODULES.map((m) => `
-          <button class="mod" data-act="go" data-tab="${m.tab}" data-mode="${m.mode}">
+          <button class="mod" data-act="topic" data-topic="${m.topic}">
             <span class="corner">${m.n}</span>
             ${m.glyph}
             <span><span class="mod-name">${m.name}</span><span class="mod-count">${m.count}</span></span>
@@ -909,8 +1051,8 @@
       legend = `<div class="legend"><span><i style="background:var(--accent)"></i>C — точка отсчёта</span><span><i style="background:var(--deg-5)"></i>натуральные ноты</span></div>`;
     } else if (mode === "scale") {
       const s = scaleData();
-      map = noteMap(s.notes);
-      legend = `<div class="legend">${s.notes.slice(0, 4).map((n) => `<span><i style="background:${n.pc === s.notes[0].pc ? "var(--accent)" : "var(--accent-2)"}"></i>${n.deg} — ${n.name}</span>`).join("")}</div>`;
+      map = noteMap(s.notes, true);
+      legend = `<div class="legend"><span><i style="background:var(--accent)"></i>${s.notes[0].name} — тоника</span><span><i style="background:var(--deg-5)"></i>ступени лада</span></div>`;
       metaLine = s.label;
     } else {
       const c = chordData();
@@ -940,7 +1082,7 @@
       </div>
       <div class="neck-readout" id="neckReadout"><span>Нажми на точку грифа, чтобы услышать ноту</span><b></b></div>
       ${legend}
-      ${mode === "chord" ? shapesBlock() : ""}
+      ${mode === "chord" ? shapesBlock() : `<div class="tip"><div class="k">лайфхак</div><p>${mode === "scale" ? THEORY.scales.tips[1] : THEORY.neck.tips[0]}</p></div>`}
       <div style="height:10px"></div>
     `;
   }
@@ -1648,6 +1790,35 @@
         if (state.tab === el.dataset.tab) return;
         state.tab = el.dataset.tab;
         state.returnMode = null;
+        if (state.tab === "home") state.topic = null;
+        // гриф показывает то, что выбрано в круге: аккорд или гамму
+        if (state.tab === "neck") {
+          state.neckMode = state.mode === "scale" ? "scale" : state.mode === "chord" ? "chord" : "notes";
+        }
+        render(false);
+        break;
+
+      case "topic":
+        state.topic = el.dataset.topic;
+        state.tab = "home";
+        render(false);
+        break;
+
+      case "theory-back":
+        state.topic = null;
+        render(false);
+        break;
+
+      case "open-circle":
+        state.mode = el.dataset.mode || state.mode;
+        state.returnMode = null;
+        state.tab = "circle";
+        render(false);
+        break;
+
+      case "open-neck":
+        state.neckMode = "notes";
+        state.tab = "neck";
         render(false);
         break;
 
@@ -1905,6 +2076,7 @@
   if (lvlParam >= 1 && lvlParam <= 3) train.level = lvlParam;
   const topicParam = params.get("topic");
   if (topicParam === "all" || topicParam === "natural") train.topic = topicParam;
+  if (topicParam && THEORY[topicParam]) { state.topic = topicParam; state.tab = "home"; }
 
   if (params.get("demo") === "train" || params.get("demo") === "answered") {
     startTrain();
@@ -1951,6 +2123,7 @@
   }
 
   applyTheme(theme, false);
+
   render(false);
 
   // для скриншотов витрины: ?scroll=520 прокручивает экран к нижнему блоку

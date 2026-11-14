@@ -551,8 +551,7 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
 .legend i { width: 8px; height: 8px; border-radius: 50%; display: block; }
 
 /* короткое определение внизу главной */
-.pull { margin: 26px 4px 0; }
-.pull .kicker { margin-bottom: 9px; }
+.pull { margin: 26px 4px 0; }.pull .kicker { margin-bottom: 9px; }
 .pull p { margin: 0; font-size: 14.5px; line-height: 1.55; letter-spacing: -.01em; color: var(--ink-2); }
 .pull b { color: var(--ink); font-weight: 700; }
 [data-theme="score"] .pull p { font-family: "Playfair Display", serif; font-size: 16px; }
@@ -636,6 +635,58 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
 
 .seg.three button { font-size: 10.5px; padding: 0 4px; }
 .btn-primary.wide { width: 100%; margin-top: 16px; }
+
+/* ------------------------------------------------ теория: раздел */
+.theory { margin-top: 2px; }
+.theory h2 {
+  margin: 22px 0 7px; font-family: var(--font-display);
+  font-size: 15px; font-weight: 500; letter-spacing: -.02em; color: var(--ink);
+}
+.theory p { margin: 0; font-size: 13.5px; line-height: 1.6; color: var(--ink-2); letter-spacing: -.005em; }
+.theory p b { color: var(--ink); font-weight: 650; }
+
+.ctype { margin-top: 10px; border-top: 1px solid var(--line); }
+.ctype-row {
+  display: grid; grid-template-columns: 62px 1fr; gap: 10px; align-items: baseline;
+  padding: 9px 0; border-bottom: 1px solid var(--line);
+}
+.ctype-row code {
+  font-family: "JetBrains Mono", monospace; font-size: 12px; font-weight: 500;
+  color: var(--accent); letter-spacing: -.02em;
+}
+.ctype-row span { font-size: 12px; line-height: 1.45; color: var(--ink-2); }
+.ctype-row span i { font-style: normal; font-weight: 650; color: var(--ink); }
+
+.tip {
+  margin-top: 16px; padding: 12px 14px 13px;
+  border-left: 2px solid var(--accent);
+  background: var(--surface-2);
+  border-radius: 4px 14px 14px 4px;
+}
+.tip .k {
+  margin-bottom: 5px; font-family: "JetBrains Mono", monospace; font-size: 8.5px;
+  letter-spacing: .16em; text-transform: uppercase; color: var(--ink-3);
+}
+.tip p { font-size: 12.5px; line-height: 1.55; }
+
+.lead-wide { max-width: none; }
+
+/* таблицы в теории: лады, струны */
+.dtable { margin-top: 10px; border-top: 1px solid var(--line); }
+.dtable-row {
+  display: grid; grid-template-columns: minmax(0, 1.05fr) 54px minmax(0, 1.2fr);
+  gap: 10px; align-items: baseline;
+  padding: 8px 0; border-bottom: 1px solid var(--line);
+  font-size: 12px; line-height: 1.4; color: var(--ink-2);
+}
+.dtable-row span:first-child { color: var(--ink); font-weight: 600; }
+.dtable-row.is-head {
+  padding: 7px 0 6px;
+  font-family: "JetBrains Mono", monospace; font-size: 8.5px;
+  letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3);
+}
+.dtable-row.is-head span:first-child { color: var(--ink-3); font-weight: 400; }
+[data-theme="score"] .dtable-row { font-family: "Playfair Display", serif; font-size: 13px; }
 .btn-primary[disabled] { opacity: .4; box-shadow: none; }
 .btn-ghost { display: block; width: 100%; height: 44px; margin-top: 10px; border: 1px solid var(--line); border-radius: 14px; font-size: 12px; font-weight: 650; color: var(--ink-2); background: transparent; }
 [data-theme="score"] .btn-ghost { border-radius: 3px; font-family: "JetBrains Mono", monospace; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
