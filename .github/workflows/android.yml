@@ -81,6 +81,17 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/keystore"
           printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/keystore/lad.jks"
+          echo "keystore size: $(stat -c%s "$RUNNER_TEMP/keystore/lad.jks") bytes"
+
+      # Если base64 обрезан или пароль не совпадает — падаем здесь с понятным текстом,
+      # а не внутри Gradle с «Keystore was tampered with».
+      - name: Проверить keystore
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          keytool -list -keystore "$RUNNER_TEMP/keystore/lad.jks" \
+            -storepass "$KEYSTORE_PASSWORD" -alias "${KEY_ALIAS:-lad}"
 
       - name: Assemble release
         working-directory: android
