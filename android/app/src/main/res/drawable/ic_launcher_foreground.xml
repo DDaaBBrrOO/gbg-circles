@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- кольцо круга -->
+    <path
+        android:pathData="M24,54a30,30 0 1,0 60,0a30,30 0 1,0 -60,0"
+        android:strokeColor="#66F0B23E"
+        android:strokeWidth="2.4" />
+
+    <!-- трезвучие -->
+    <path
+        android:pathData="M54,24L80,69L28,69Z"
+        android:strokeColor="#99F0B23E"
+        android:strokeWidth="1.8" />
+
+    <!-- тоны аккорда -->
+    <path
+        android:pathData="M48.4,24a5.6,5.6 0 1,0 11.2,0a5.6,5.6 0 1,0 -11.2,0"
+        android:fillColor="#F0B23E" />
+    <path
+        android:pathData="M74.4,69a5.6,5.6 0 1,0 11.2,0a5.6,5.6 0 1,0 -11.2,0"
+        android:fillColor="#F0B23E" />
+    <path
+        android:pathData="M22.4,69a5.6,5.6 0 1,0 11.2,0a5.6,5.6 0 1,0 -11.2,0"
+        android:fillColor="#F0B23E" />
+</vector>
