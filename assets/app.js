@@ -58,6 +58,50 @@
     { semi: 12, name: "Октава", short: "ч.8", step: 7, feel: "Та же нота выше" }
   ];
 
+  /* формы аккордов: [6-я … 1-я струна], null — не звучит.
+     root — pc тоники в том виде, как записана форма; fixed — только для своего корня. */
+  const SHAPE_LIB = {
+    maj: [
+      { frets: [null, 3, 2, 0, 1, 0], root: 0, fixed: true, tag: "C" },
+      { frets: [3, 2, 0, 0, 0, 3], root: 7, fixed: true, tag: "G" },
+      { frets: [null, null, 0, 2, 3, 2], root: 2, fixed: true, tag: "D" },
+      { frets: [0, 2, 2, 1, 0, 0], root: 4, form: "E" },
+      { frets: [null, 0, 2, 2, 2, 0], root: 9, form: "A" }
+    ],
+    min: [
+      { frets: [null, null, 0, 2, 3, 1], root: 2, fixed: true, tag: "Dm" },
+      { frets: [0, 2, 2, 0, 0, 0], root: 4, form: "Em" },
+      { frets: [null, 0, 2, 2, 1, 0], root: 9, form: "Am" }
+    ],
+    "7": [
+      { frets: [null, 3, 2, 3, 1, 0], root: 0, fixed: true, tag: "C7" },
+      { frets: [3, 2, 0, 0, 0, 1], root: 7, fixed: true, tag: "G7" },
+      { frets: [null, 2, 1, 2, 0, 2], root: 11, fixed: true, tag: "B7" },
+      { frets: [0, 2, 0, 1, 0, 0], root: 4, form: "E7" },
+      { frets: [null, 0, 2, 0, 2, 0], root: 9, form: "A7" }
+    ],
+    maj7: [
+      { frets: [null, 3, 2, 0, 0, 0], root: 0, fixed: true, tag: "Cmaj7" },
+      { frets: [null, null, 3, 2, 1, 0], root: 5, fixed: true, tag: "Fmaj7" },
+      { frets: [0, 2, 1, 1, 0, 0], root: 4, form: "Emaj7" },
+      { frets: [null, 0, 2, 1, 2, 0], root: 9, form: "Amaj7" }
+    ],
+    m7: [
+      { frets: [null, null, 0, 2, 1, 1], root: 2, fixed: true, tag: "Dm7" },
+      { frets: [0, 2, 0, 0, 0, 0], root: 4, form: "Em7" },
+      { frets: [null, 0, 2, 0, 1, 0], root: 9, form: "Am7" }
+    ],
+    sus4: [
+      { frets: [null, null, 0, 2, 3, 3], root: 2, fixed: true, tag: "Dsus4" },
+      { frets: [0, 2, 2, 2, 0, 0], root: 4, form: "Esus4" },
+      { frets: [null, 0, 2, 2, 3, 0], root: 9, form: "Asus4" }
+    ],
+    sus2: [
+      { frets: [null, null, 0, 2, 3, 0], root: 2, fixed: true, tag: "Dsus2" },
+      { frets: [null, 0, 2, 2, 0, 0], root: 9, form: "Asus2" }
+    ]
+  };
+
   /* ------------------------------------------------ утилиты */
   const $ = (sel, root = document) => root.querySelector(sel);
   const escapeAttr = (v) => String(v).replace(/"/g, "&quot;");
@@ -94,6 +138,7 @@
     arp: false,
     neckMode: "chord",
     naturalsOnly: true,
+    moreShapes: false,
     returnMode: null,
     quiz: null
   };
@@ -103,6 +148,8 @@
   if (screenParam === "chords") { state.tab = "circle"; state.mode = "chord"; }
   if (screenParam === "scales") { state.tab = "circle"; state.mode = "scale"; }
   if (screenParam === "intervals") { state.tab = "circle"; state.mode = "interval"; }
+  const rootParam = params.get("root");
+  if (rootParam !== null && +rootParam >= 0 && +rootParam <= 11) state.root = +rootParam;
   const modeParam = params.get("mode");
   if (["chord", "scale", "interval"].includes(modeParam)) {
     state.mode = modeParam;
@@ -910,21 +957,56 @@
   }
 
   /* аппликатуры выбранного аккорда */
+  /* формы из библиотеки: сдвигаем по струне тоники под текущий корень */
+  function libraryShapes(ch) {
+    const lib = SHAPE_LIB[ch.id];
+    if (!lib) return [];
+    const out = [];
+    lib.forEach((s) => {
+      if (s.fixed && s.root !== state.root) return;
+      const shift = s.fixed ? 0 : ((state.root - s.root) % 12 + 12) % 12;
+      const frets = s.frets.map((f) => (f === null ? null : f + shift));
+      const played = frets.filter((f) => f !== null);
+      if (played.length < 3) return;
+      if (Math.max.apply(null, played) > 12) return;
+      const low = Math.min.apply(null, played);
+      out.push({
+        frets,
+        tag: s.fixed ? "открытая · " + s.tag : s.form + " · " + low + " лад",
+        low
+      });
+    });
+    return out.sort((a, b) => (a.low === 0 ? -1 : b.low === 0 ? 1 : a.low - b.low));
+  }
+
   function shapesBlock() {
     const c = chordData();
-    const shapes = chordShapes(c);
-    if (!shapes.length) return "";
+    const lib = libraryShapes(c);
+    const key = (frets) => frets.map((f) => (f === null ? "x" : f)).join(",");
+    const have = lib.map((s) => key(s.frets));
+    const gen = chordShapes(c)
+      .filter((s) => have.indexOf(key(s)) < 0)
+      .map((s) => {
+        const low = Math.min.apply(null, s.filter((f) => f !== null)) || 0;
+        return { frets: s, tag: low === 0 ? "вариант" : low + " лад", low };
+      })
+      .filter((s) => s.low > 0 || !lib.some((l) => l.low === 0));
+
+    const all = lib.slice().sort((a, b) => a.low - b.low)
+      .concat(gen.slice().sort((a, b) => a.low - b.low));
+    if (!all.length) return "";
+    const limit = state.moreShapes ? 8 : 4;
+    const shown = all.slice(0, limit);
+
     return `
-      <div class="slabel"><span>Аппликатуры</span><span>${shapes.length} варианта</span></div>
+      <div class="slabel"><span>Аппликатуры</span><span>${all.length} ${all.length === 1 ? "вариант" : all.length < 5 ? "варианта" : "вариантов"}</span></div>
       <div class="shapes">
-        ${shapes.map((s) => {
-          const base = Math.min(...s.filter((f) => f !== null)) || 0;
-          return `<button class="shape" data-act="shape" data-frets="${s.map((f) => f === null ? "x" : f).join(",")}">
-            ${shapeSVG(s)}
-            <span class="shape-lbl">${base === 0 ? "открытая" : base + " лад"}</span>
-          </button>`;
-        }).join("")}
-      </div>`;
+        ${shown.map((s) => `<button class="shape" data-act="shape" data-frets="${key(s.frets)}">
+            ${shapeSVG(s.frets)}
+            <span class="shape-lbl">${s.tag}</span>
+          </button>`).join("")}
+      </div>
+      ${all.length > 4 ? `<button class="more-shapes" data-act="shapes-more">${state.moreShapes ? "свернуть" : "ещё варианты"} ${ICON.arrow}</button>` : ""}`;
   }
 
   /* одна струна, 13 ладов — компактный ответ вместо целого грифа */
@@ -986,7 +1068,11 @@
     best: 0,
     q: null,
     picked: [],
-    result: null
+    result: null,
+    t0: 0,
+    lastMs: 0,
+    totalMs: 0,
+    wrong: []
   };
 
   const randOf = (a) => a[Math.floor(Math.random() * a.length)];
@@ -1041,6 +1127,7 @@
   function newTrainQuestion() {
     train.picked = [];
     train.result = null;
+    train.t0 = Date.now();
     const mode = train.mode;
 
     if (mode === "note") {
@@ -1103,14 +1190,30 @@
     if (q.kind === "earChord") strum(q.midis, 0.05, 2.1);
   }
 
+  /* как выглядел вопрос и что было правильным — для разбора ошибок в конце серии */
+  function reviewOf(q) {
+    if (q.kind === "note") {
+      const fret = ((q.pc - (TUNING[q.str] % 12)) % 12 + 12) % 12;
+      return { q: `Нота ${ROOT_NAMES[q.pc]} · ${6 - q.str}-я струна`, a: `${fret}-й лад` };
+    }
+    if (q.kind === "set") {
+      return { q: q.title.replace(/<[^>]+>/g, ""), a: q.target.map((pc) => ROOT_NAMES[pc]).join(" · ") };
+    }
+    if (q.kind === "earInt") return { q: "Интервал на слух", a: q.iv.name };
+    return { q: `Аккорд на слух от ${ROOT_NAMES[q.root]}`, a: `${ROOT_NAMES[q.root]}${q.ch.sym} · ${q.ch.label}` };
+  }
+
   function finishQuestion(ok) {
     train.asked += 1;
+    train.lastMs = train.t0 ? Date.now() - train.t0 : 0;
+    train.totalMs += train.lastMs;
     if (ok) {
       train.correct += 1;
       train.streak += 1;
       train.best = Math.max(train.best, train.streak);
     } else {
       train.streak = 0;
+      train.wrong.push(reviewOf(train.q));
     }
   }
 
@@ -1178,6 +1281,8 @@
     train.correct = 0;
     train.streak = 0;
     train.best = 0;
+    train.wrong = [];
+    train.totalMs = 0;
     newTrainQuestion();
     render(true);
   }
@@ -1220,6 +1325,8 @@
   function trainSummaryScreen() {
     const accuracy = train.asked ? Math.round((train.correct / train.asked) * 100) : 0;
     const verdict = accuracy >= 90 ? "Отличная серия" : accuracy >= 70 ? "Хорошо, но есть над чем работать" : "Стоит повторить теорию";
+    const avg = train.totalMs ? (train.totalMs / train.asked / 1000).toFixed(1).replace(".", ",") : "";
+    const mistakes = train.wrong.slice(0, 6);
     return `
       <div class="shead">
         <div>
@@ -1230,7 +1337,7 @@
       </div>
       <div class="card result">
         <div class="result-num">${accuracy}<span>%</span></div>
-        <div class="result-verdict">${verdict}</div>
+        <div class="result-verdict">${verdict}${avg ? " · в среднем " + avg + " с на вопрос" : ""}</div>
         <div class="stats inside">
           <div class="stat"><b>${train.correct}</b><span>верно</span></div>
           <div class="stat"><b>${train.asked - train.correct}</b><span>ошибок</span></div>
@@ -1239,6 +1346,11 @@
         <button class="btn-primary wide" data-act="train-again">Ещё серию ${ICON.arrow}</button>
         <button class="btn-ghost wide" data-act="train-setup">Сменить режим</button>
       </div>
+      ${mistakes.length ? `<div class="card review">
+        <div class="slabel"><span>Разбор ошибок</span><span>${train.wrong.length} из ${train.asked}</span></div>
+        ${mistakes.map((w) => `<div class="review-row"><span>${w.q}</span><b>${w.a}</b></div>`).join("")}
+        ${train.wrong.length > mistakes.length ? `<div class="review-more">и ещё ${train.wrong.length - mistakes.length}</div>` : ""}
+      </div>` : ""}
       <div style="height:6px"></div>
     `;
   }
@@ -1316,6 +1428,11 @@
       fb = answered
         ? `<div class="fb-text ${train.result.ok ? "ok" : "no"}">${train.result.ok ? ICON.check : ICON.close}<span>${train.result.ok ? "Верно — " + rightLabel : "Это " + rightLabel}</span></div>`
         : `<div class="fb-text muted">Послушайте и выберите вариант</div>`;
+    }
+
+    if (answered && train.lastMs) {
+      const sec = (train.lastMs / 1000).toFixed(1).replace(".", ",");
+      fb = fb.replace(/<\/span><\/div>$/, `</span><span class="fb-time">${sec} с</span></div>`);
     }
 
     return `
@@ -1639,6 +1756,11 @@
         break;
       }
 
+      case "shapes-more":
+        state.moreShapes = !state.moreShapes;
+        render(true);
+        break;
+
       case "shape": {
         const frets = el.dataset.frets.split(",").map((f) => (f === "x" ? null : +f));
         const midis = frets.map((f, s) => (f === null ? null : TUNING[s] + f + 12)).filter((m) => m !== null);
@@ -1811,6 +1933,11 @@
     train.correct = 8;
     train.best = 6;
     train.streak = 2;
+    train.totalMs = 64000;
+    train.wrong = [
+      { q: "Ноты аккорда Gm", a: "G · B♭ · D" },
+      { q: "Интервал на слух", a: "Большая секста" }
+    ];
     train.finished = true;
   }
 
@@ -1846,6 +1973,43 @@
   }
 
   // корректная иконка звука при первом рендере
+  // самопроверка аппликатур: ?test=shapes — у каждой формы точный состав нот
+  if (params.get("test") === "shapes") {
+    const fails = [];
+    const savedRoot = state.root, savedChord = state.chord;
+    CHORDS.forEach((ch, ci) => {
+      if (!SHAPE_LIB[ch.id]) return;
+      for (let r = 0; r < 12; r++) {
+        state.root = r;
+        state.chord = ci;
+        const want = ch.notes.map((s) => (r + s[0]) % 12);
+        const third = ch.notes.filter((n) => /3/.test(n[2]))[0];
+        const seventh = ch.notes.filter((n) => /7/.test(n[2]))[0];
+        libraryShapes(ch).forEach((s) => {
+          const got = [];
+          s.frets.forEach((f, str) => {
+            if (f === null) return;
+            const pc = (TUNING[str] + f) % 12;
+            if (got.indexOf(pc) < 0) got.push(pc);
+          });
+          got.sort((a, b) => a - b);
+          const foreign = got.filter((pc) => want.indexOf(pc) < 0);
+          const miss = [];
+          if (got.indexOf(r) < 0) miss.push("1");
+          if (third && got.indexOf((r + third[0]) % 12) < 0) miss.push("3");
+          if (seventh && got.indexOf((r + seventh[0]) % 12) < 0) miss.push("7");
+          if (foreign.length || miss.length) {
+            fails.push(ch.id + "/" + ROOT_NAMES[r] + " " + s.tag + " лишние:[" + foreign.join(",") + "] нет:[" + miss.join(",") + "]");
+          }
+        });
+      }
+    });
+    state.root = savedRoot;
+    state.chord = savedChord;
+    document.body.dataset.testShapes = fails.length ? fails.slice(0, 8).join(" | ") : "ok";
+  }
+
+
   $("#soundBtn").innerHTML = state.sound ? ICON.sound : ICON.mute;
 
   $("#themeBtn").addEventListener("click", () => {
