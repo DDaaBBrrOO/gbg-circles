@@ -9,6 +9,9 @@ android/app/src/main/assets/www/
 *.jks
 *.keystore
 
+# ключи подписи и base64 для секретов — только локально
+keys/
+
 # локальный тулчейн (JDK + Android SDK), не для репозитория
 .toolchain/
 
