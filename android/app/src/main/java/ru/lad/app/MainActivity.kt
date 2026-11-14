@@ -2,6 +2,7 @@ package ru.lad.app
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
@@ -23,6 +24,9 @@ class MainActivity : Activity() {
     private lateinit var web: WebView
     private lateinit var root: FrameLayout
 
+    private val lightBg = Color.parseColor("#F7F4EC")
+    private val darkBg = Color.parseColor("#09090B")
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -33,8 +37,14 @@ class MainActivity : Activity() {
             window.setDecorFitsSystemWindows(false)
         }
 
+        // фон окна совпадает с темой системы, чтобы не было светлой полосы под статус-баром
+        val systemDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+            Configuration.UI_MODE_NIGHT_YES
+        val initialBg = if (systemDark) darkBg else lightBg
+        window.decorView.setBackgroundColor(initialBg)
+
         root = FrameLayout(this).apply {
-            setBackgroundColor(Color.parseColor("#F7F4EC"))
+            setBackgroundColor(initialBg)
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -42,7 +52,7 @@ class MainActivity : Activity() {
         }
 
         web = WebView(this).apply {
-            setBackgroundColor(Color.parseColor("#F7F4EC"))
+            setBackgroundColor(initialBg)
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -66,7 +76,9 @@ class MainActivity : Activity() {
             webChromeClient = WebChromeClient()
             addJavascriptInterface(Bridge(), "LadHost")
 
-            loadUrl("file:///android_asset/www/app.html")
+            // тему задаёт оболочка: WebView наследует тёмный вид от Material-темы,
+            // а не от системной настройки, поэтому передаём её явно
+            loadUrl("file:///android_asset/www/app.html?theme=" + if (systemDark) "night" else "air")
         }
 
         root.addView(web)
@@ -89,21 +101,32 @@ class MainActivity : Activity() {
         }
     }
 
-    /** Мостик для страницы: тема влияет на цвет иконок статус-бара. */
+    /** Мостик для страницы: тема влияет на цвет иконок и фон под системными панелями. */
     inner class Bridge {
         @JavascriptInterface
         fun onTheme(dark: Boolean) {
-            runOnUiThread { applySystemBarIcons(dark) }
+            runOnUiThread { applyTheme(dark) }
         }
     }
 
+    private fun applyTheme(dark: Boolean) {
+        val bg = if (dark) darkBg else lightBg
+        root.setBackgroundColor(bg)
+        web.setBackgroundColor(bg)
+        window.decorView.setBackgroundColor(bg)
+        applySystemBarIcons(dark)
+    }
+
     private fun applySystemBarIcons(dark: Boolean) {
+        val mask = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+            android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or
+                android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
+        else
+            android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             val controller = window.insetsController ?: return
-            controller.setSystemBarsAppearance(
-                if (dark) 0 else android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
-                android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
-            )
+            controller.setSystemBarsAppearance(if (dark) 0 else mask, mask)
         } else {
             @Suppress("DEPRECATION")
             window.decorView.systemUiVisibility =

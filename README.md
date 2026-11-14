@@ -52,9 +52,21 @@ tools\dev.ps1 -App -Theme night -Screen circle
 
 | Способ | Что нужно | Когда подходит |
 |---|---|---|
-| **Эмулятор Android** | Android Studio → Device Manager → создать Pixel (API 35) | проверить установку, статус-бар, иконки |
+| **Эмулятор (скрипт)** | `tools\emulator.ps1` — сам создаст AVD, поднимет эмулятор и поставит APK | проверить установку, статус-бар, иконки |
 | `emulator` из командной строки | `sdkmanager "emulator" "system-images;android-35;google_apis;x86_64"` + AVD | без Android Studio, но ~1.5 ГБ загрузки |
 | Телефон по USB | `adb install -r app-debug.apk`, зеркало экрана — `scrcpy` | живой тест на настоящем экране |
+
+```powershell
+cd C:\projects\chords
+powershell -File tools\emulator.ps1                      # запуск + установка
+powershell -File tools\emulator.ps1 -Shot shot.png       # ещё и скриншот экрана
+powershell -File tools\emulator.ps1 -Fresh               # пересоздать AVD
+```
+
+Первый запуск эмулятора — до двух минут (потом он живёт в фоне и
+переиспользуется). Если APK не ставится из-за подписи, скрипт сам делает
+чистую переустановку. SDK лежит в `.toolchain\sdk` и в репозиторий не попадает:
+при первом запуске `emulator.ps1` подскажет, чего не хватает.
 
 Эмулятор удобен для проверки того, чего нет в браузере: отступов системных
 панелей, тёмных иконок статус-бара, установки поверх старой версии. Всё
