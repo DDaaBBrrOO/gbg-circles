@@ -498,8 +498,7 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
 /* ------------------------------------------------ neck */
 .neck-card { padding: 12px 8px 6px; overflow: hidden; }
 .neck-card > svg { display: block; width: 100%; height: auto; }
-.fb-string { stroke: var(--line); stroke-width: 1; }
-.fb-string.thick { stroke: var(--ink-3); stroke-width: 1.4; }
+.fb-string { stroke: var(--line); }
 .fb-fret { stroke: var(--line); stroke-width: 1; opacity: .9; }
 .fb-nut { stroke: var(--ink-2); stroke-width: 4; stroke-linecap: round; }
 .fb-fretnum { font-family: "JetBrains Mono", monospace; font-size: 6px; fill: var(--ink-3); }

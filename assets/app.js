@@ -422,11 +422,11 @@
     }
     out.push(`<line class="fb-nut" x1="${X0 - 12}" y1="${Y0}" x2="${X0 + 5 * SX + 12}" y2="${Y0}"/>`);
 
-    // струны
+    // струны: слева 6-я (толстая E), справа 1-я (тонкая e)
+    const STR_W = [3.6, 3.0, 2.4, 1.9, 1.5, 1.1];
     for (let k = 0; k < 6; k++) {
       const x = X0 + k * SX;
-      const thick = k === 0 ? " thick" : "";
-      out.push(`<line class="fb-string${thick}" x1="${x}" y1="${Y0 - 4}" x2="${x}" y2="${BOT + 6}"/>`);
+      out.push(`<line class="fb-string" x1="${x}" y1="${Y0 - 4}" x2="${x}" y2="${BOT + 6}" stroke-width="${STR_W[k]}"/>`);
       out.push(`<text class="fb-string-name" x="${x}" y="13" text-anchor="middle">${["E", "A", "D", "G", "B", "e"][k]}</text>`);
     }
 
@@ -442,7 +442,7 @@
     if (notes) {
       for (let s = 0; s < 6; s++) {
         if (onlyString !== null && onlyString !== undefined && s !== onlyString) continue;
-        const midiBase = TUNING[5 - s];
+        const midiBase = TUNING[s];
         for (let f = 0; f <= 12; f++) {
           const pc = pcOf(midiBase + f);
           if (onlyPc !== null && pc !== onlyPc) continue;
@@ -470,9 +470,9 @@
       for (let s = 0; s < 6; s++) {
         if (onlyString !== null && onlyString !== undefined && s !== onlyString) continue;
         const x = X0 + s * SX - SX / 2;
-        out.push(`<rect class="fb-hit" data-act="fret" data-string="${5 - s}" data-fret="0" x="${(x + 2).toFixed(2)}" y="${Y0 - 38}" width="${SX - 4}" height="38"/>`);
+        out.push(`<rect class="fb-hit" data-act="fret" data-string="${s}" data-fret="0" x="${(x + 2).toFixed(2)}" y="${Y0 - 38}" width="${SX - 4}" height="38"/>`);
         for (let f = 1; f <= 12; f++) {
-          out.push(`<rect class="fb-hit" data-act="fret" data-string="${5 - s}" data-fret="${f}" x="${(x + 2).toFixed(2)}" y="${(Y0 + (f - 1) * FY).toFixed(2)}" width="${SX - 4}" height="${FY}"/>`);
+          out.push(`<rect class="fb-hit" data-act="fret" data-string="${s}" data-fret="${f}" x="${(x + 2).toFixed(2)}" y="${(Y0 + (f - 1) * FY).toFixed(2)}" width="${SX - 4}" height="${FY}"/>`);
         }
       }
     }
@@ -1032,7 +1032,7 @@
           const pcs = (state.neckMode === "scale" ? scaleData().notes : chordData().notes).map((n) => n.pc);
           const name = ROOT_NAMES[(TUNING[+el.dataset.string] + +el.dataset.fret) % 12];
           const ro = $("#neckReadout");
-          if (ro) ro.innerHTML = `<span>${+el.dataset.string + 1}-я струна · ${el.dataset.fret} лад</span><b>${name}</b>`;
+          if (ro) ro.innerHTML = `<span>${6 - (+el.dataset.string)}-я струна · ${el.dataset.fret} лад</span><b>${name}</b>`;
           pluck(TUNING[+el.dataset.string] + +el.dataset.fret, undefined, 1.2, 0.15);
           break;
         }
