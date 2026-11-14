@@ -158,6 +158,59 @@
     if (state.tab === "neck") state.neckMode = modeParam === "interval" ? "notes" : modeParam;
   }
 
+  /* ------------------------------------------------ навигация «назад» */
+  // Стек экранов: системная кнопка «назад» возвращает на предыдущий экран,
+  // а не закрывает приложение. Глубину стека знает оболочка (LadHost.setBackDepth).
+  const navStack = [];
+
+  function currentSnap() {
+    return {
+      tab: state.tab,
+      topic: state.topic,
+      neckMode: state.neckMode,
+      mode: state.mode,
+      trainStage: train.started ? (train.finished ? "summary" : "question") : "setup"
+    };
+  }
+
+  function syncBackDepth() {
+    try {
+      if (window.LadHost && window.LadHost.setBackDepth) window.LadHost.setBackDepth(navStack.length);
+    } catch (e) { /* нет оболочки */ }
+  }
+
+  function pushNav() {
+    navStack.push(currentSnap());
+    if (navStack.length > 30) navStack.shift();
+    syncBackDepth();
+  }
+
+  function restoreSnap(s) {
+    state.tab = s.tab;
+    state.topic = s.topic;
+    state.neckMode = s.neckMode;
+    state.mode = s.mode;
+    if (s.trainStage === "setup") {
+      train.started = false;
+      train.finished = false;
+    }
+    render(false);
+  }
+
+  window.ladBack = function () {
+    // из итогов серии — в настройку тренажёра, не закрывая приложение
+    if (train.started && train.finished) {
+      train.started = false;
+      train.finished = false;
+      render(false);
+      return true;
+    }
+    if (!navStack.length) return false;
+    restoreSnap(navStack.pop());
+    syncBackDepth();
+    return true;
+  };
+
   /* ------------------------------------------------ вывод данных */
   function chordData() {
     const ch = CHORDS[state.chord];
@@ -708,9 +761,29 @@
       lead: "Интервал — это расстояние между двумя нотами. Аккорды и гаммы складываются именно из интервалов, поэтому начинать проще с них.",
       blocks: [
         { h: "Считаем полутонами", p: "Самый маленький шаг — <b>полутон</b>: один лад на грифе, одна соседняя клавиша на пианино. Октава — 12 полутонов, и между ними 11 промежутков, у каждого своё имя." },
-        { h: "Шпаргалка", p: "м.2 — 1 · б.2 — 2 · м.3 — 3 · б.3 — 4 · ч.4 — 5 · тритон — 6 · ч.5 — 7 · м.6 — 8 · б.6 — 9 · м.7 — 10 · б.7 — 11 · октава — 12." },
+        { h: "Почему «большая» и «малая»", p: "Интервал называется по двум вещам: сколько в нём <b>ступеней</b> (считаем ноты по именам — C, D, E…) и сколько <b>полутонов</b>. Одна и та же ступень бывает шире и уже: б.3 — 4 полутона, м.3 — 3. Отсюда большие и малые. Есть ещё <b>чистые</b> (1, 4, 5, 8), <b>увеличенные</b> и <b>уменьшенные</b>: ими обозначают то, что выходит за обычный размер — тритон это ув.4 или ум.5." },
         { h: "Как слышать", p: "Секунда — две ноты рядом. Терция — «через одну», она и делает аккорд мажорным или минорным. Квинта — самая устойчивая после октавы опора. Тритон — колючий, звучит как вопрос без ответа." }
       ],
+      table: {
+        title: "Все тринадцать интервалов",
+        cols: ["Знак", "Название", "Полутонов"],
+        w: "58px 1fr 64px",
+        rows: [
+          ["ч.1", "прима", "0"],
+          ["м.2", "малая секунда", "1"],
+          ["б.2", "большая секунда", "2"],
+          ["м.3", "малая терция", "3"],
+          ["б.3", "большая терция", "4"],
+          ["ч.4", "чистая кварта", "5"],
+          ["ув.4 / ум.5", "тритон", "6"],
+          ["ч.5", "чистая квинта", "7"],
+          ["м.6", "малая секста", "8"],
+          ["б.6", "большая секста", "9"],
+          ["м.7", "малая септима", "10"],
+          ["б.7", "большая септима", "11"],
+          ["ч.8", "октава", "12"]
+        ]
+      },
       tips: [
         "Октава на грифе: +2 струны и +2 лада (с 6-й на 4-ю, с 5-й на 3-ю), +2 струны и +3 лада для 4→2 и 3→1.",
         "Квинта — та же нота на соседней струне через 5 ладов, кроме перехода G→B: там 4."
@@ -761,6 +834,7 @@
       table: {
         title: "Семь ладов мажора",
         cols: ["Лад", "Ступень", "Настроение"],
+        w: "1.1fr 48px 1fr",
         rows: [
           ["Ионийский", "1", "мажор как он есть"],
           ["Дорийский", "2", "минор с бодрой секстой"],
@@ -789,6 +863,7 @@
       table: {
         title: "Открытые струны и 5-й лад",
         cols: ["Струна", "Открытая", "5-й лад"],
+        w: "54px 1fr 1fr",
         rows: [
           ["6-я", "E", "A"],
           ["5-я", "A", "D"],
@@ -824,12 +899,12 @@
           </div>` : ""}
         ${t.table ? `
           <h2>${t.table.title}</h2>
-          <div class="dtable" style="--cols:${t.table.cols.length}">
-            <div class="dtable-row is-head">
+          <div class="dtable">
+            <div class="dtable-row is-head" style="grid-template-columns:${t.table.w}">
               ${t.table.cols.map((c) => `<span>${c}</span>`).join("")}
             </div>
             ${t.table.rows.map((r) => `
-              <div class="dtable-row">${r.map((c) => `<span>${c}</span>`).join("")}</div>`).join("")}
+              <div class="dtable-row" style="grid-template-columns:${t.table.w}">${r.map((c) => `<span>${c}</span>`).join("")}</div>`).join("")}
           </div>` : ""}
         ${t.tips.map((tip) => `<div class="tip"><div class="k">лайфхак</div><p>${tip}</p></div>`).join("")}
       </div>
@@ -1405,6 +1480,7 @@
   }
 
   function startTrain() {
+    pushNav();
     train.started = true;
     train.finished = false;
     train.round = 1;
@@ -1788,6 +1864,7 @@
     switch (act) {
       case "tab":
         if (state.tab === el.dataset.tab) return;
+        pushNav();
         state.tab = el.dataset.tab;
         state.returnMode = null;
         if (state.tab === "home") state.topic = null;
@@ -1799,17 +1876,21 @@
         break;
 
       case "topic":
+        pushNav();
         state.topic = el.dataset.topic;
         state.tab = "home";
         render(false);
         break;
 
       case "theory-back":
-        state.topic = null;
-        render(false);
+        if (!window.ladBack()) {
+          state.topic = null;
+          render(false);
+        }
         break;
 
       case "open-circle":
+        pushNav();
         state.mode = el.dataset.mode || state.mode;
         state.returnMode = null;
         state.tab = "circle";
@@ -1817,6 +1898,7 @@
         break;
 
       case "open-neck":
+        pushNav();
         state.neckMode = "notes";
         state.tab = "neck";
         render(false);

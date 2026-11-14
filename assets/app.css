@@ -675,10 +675,12 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
 .dtable { margin-top: 10px; border-top: 1px solid var(--line); }
 .dtable-row {
   display: grid; grid-template-columns: minmax(0, 1.05fr) 54px minmax(0, 1.2fr);
+  grid-auto-flow: row;
   gap: 10px; align-items: baseline;
   padding: 8px 0; border-bottom: 1px solid var(--line);
   font-size: 12px; line-height: 1.4; color: var(--ink-2);
 }
+.dtable-row > span { min-width: 0; }
 .dtable-row span:first-child { color: var(--ink); font-weight: 600; }
 .dtable-row.is-head {
   padding: 7px 0 6px;

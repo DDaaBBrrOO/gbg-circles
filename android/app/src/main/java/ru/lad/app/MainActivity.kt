@@ -24,6 +24,11 @@ class MainActivity : Activity() {
     private lateinit var web: WebView
     private lateinit var root: FrameLayout
 
+    /** Сколько экранов в стеке страницы: > 0 — «назад» возвращает внутри приложения. */
+    @Volatile
+    private var backDepth = 0
+    private var lastBackAt = 0L
+
     private val lightBg = Color.parseColor("#F7F4EC")
     private val darkBg = Color.parseColor("#09090B")
 
@@ -111,6 +116,12 @@ class MainActivity : Activity() {
         fun onTheme(dark: Boolean) {
             runOnUiThread { applyTheme(dark) }
         }
+
+        /** Страница сообщает, сколько экранов лежит в её стеке «назад». */
+        @JavascriptInterface
+        fun setBackDepth(depth: Int) {
+            backDepth = depth
+        }
     }
 
     private fun applyTheme(dark: Boolean) {
@@ -152,7 +163,18 @@ class MainActivity : Activity() {
 
     @Deprecated("Android 13+ предпочитает OnBackInvokedDispatcher")
     override fun onBackPressed() {
-        if (web.canGoBack()) web.goBack() else super.onBackPressed()
+        if (backDepth > 0) {
+            web.evaluateJavascript("window.ladBack && window.ladBack()", null)
+            return
+        }
+        // на корневом экране: первое нажатие — подсказка, второе — выход
+        val now = System.currentTimeMillis()
+        if (now - lastBackAt < 2000) {
+            super.onBackPressed()
+            return
+        }
+        lastBackAt = now
+        android.widget.Toast.makeText(this, "Нажмите «назад» ещё раз, чтобы выйти", android.widget.Toast.LENGTH_SHORT).show()
     }
 
     override fun onDestroy() {
