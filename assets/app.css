@@ -689,6 +689,31 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
 }
 .dtable-row.is-head span:first-child { color: var(--ink-3); font-weight: 400; }
 [data-theme="score"] .dtable-row { font-family: "Playfair Display", serif; font-size: 13px; }
+
+/* ------------------------------------------------ диалог «назад» */
+.modal-host { position: absolute; inset: 0; pointer-events: none; z-index: 6; }
+.modal {
+  position: absolute; inset: 0; pointer-events: auto;
+  display: flex; align-items: flex-end; justify-content: center;
+  padding: 0 16px calc(112px + env(safe-area-inset-bottom));
+  background: color-mix(in srgb, #000 58%, transparent);
+  animation: modal-in .18s ease-out;
+}
+.modal-card {
+  width: 100%; padding: 20px 20px 16px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 22px; box-shadow: 0 24px 60px -24px rgba(0, 0, 0, .55);
+}
+.modal-card .kicker { margin-bottom: 8px; }
+.modal-card h3 {
+  margin: 0 0 8px; font-family: var(--font-display);
+  font-size: 19px; font-weight: 500; letter-spacing: -.02em; color: var(--ink);
+}
+.modal-card p { margin: 0 0 16px; font-size: 13px; line-height: 1.55; color: var(--ink-2); }
+.modal-card .btn-primary { margin-bottom: 8px; }
+.modal-card .btn-ghost { margin-top: 0; }
+[data-theme="score"] .modal-card { border-radius: 3px; }
+@keyframes modal-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 .btn-primary[disabled] { opacity: .4; box-shadow: none; }
 .btn-ghost { display: block; width: 100%; height: 44px; margin-top: 10px; border: 1px solid var(--line); border-radius: 14px; font-size: 12px; font-weight: 650; color: var(--ink-2); background: transparent; }
 [data-theme="score"] .btn-ghost { border-radius: 3px; font-family: "JetBrains Mono", monospace; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }

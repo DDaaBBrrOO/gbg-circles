@@ -141,6 +141,7 @@
     moreShapes: false,
     returnMode: null,
     topic: null,
+    confirmTrain: false,
     quiz: null
   };
 
@@ -159,56 +160,49 @@
   }
 
   /* ------------------------------------------------ навигация «назад» */
-  // Стек экранов: системная кнопка «назад» возвращает на предыдущий экран,
-  // а не закрывает приложение. Глубину стека знает оболочка (LadHost.setBackDepth).
-  const navStack = [];
-
-  function currentSnap() {
-    return {
-      tab: state.tab,
-      topic: state.topic,
-      neckMode: state.neckMode,
-      mode: state.mode,
-      trainStage: train.started ? (train.finished ? "summary" : "question") : "setup"
-    };
+  // Системная «назад» всегда ведёт на главную: из теории, круга, грифа, тренажёра.
+  // С главной — подсказка «нажмите ещё раз», второе нажатие закрывает приложение.
+  function canGoBack() {
+    return state.confirmTrain || state.tab !== "home" || !!state.topic || train.started;
   }
 
   function syncBackDepth() {
     try {
-      if (window.LadHost && window.LadHost.setBackDepth) window.LadHost.setBackDepth(navStack.length);
+      if (window.LadHost && window.LadHost.setBackDepth) window.LadHost.setBackDepth(canGoBack() ? 1 : 0);
     } catch (e) { /* нет оболочки */ }
   }
 
-  function pushNav() {
-    navStack.push(currentSnap());
-    if (navStack.length > 30) navStack.shift();
-    syncBackDepth();
-  }
+  function pushNav() { syncBackDepth(); }
 
-  function restoreSnap(s) {
-    state.tab = s.tab;
-    state.topic = s.topic;
-    state.neckMode = s.neckMode;
-    state.mode = s.mode;
-    if (s.trainStage === "setup") {
-      train.started = false;
-      train.finished = false;
-    }
+  function goHome() {
+    train.started = false;
+    train.finished = false;
+    state.confirmTrain = false;
+    state.topic = null;
+    state.tab = "home";
     render(false);
+    syncBackDepth();
   }
 
   window.ladBack = function () {
-    // из итогов серии — в настройку тренажёра, не закрывая приложение
-    if (train.started && train.finished) {
-      train.started = false;
-      train.finished = false;
-      render(false);
+    if (state.confirmTrain) {
+      state.confirmTrain = false;
+      render(true);
+      syncBackDepth();
       return true;
     }
-    if (!navStack.length) return false;
-    restoreSnap(navStack.pop());
-    syncBackDepth();
-    return true;
+    // серия идёт — сначала спрашиваем
+    if (train.started && !train.finished) {
+      state.confirmTrain = true;
+      state.confirmFrom = "back";
+      render(true);
+      return true;
+    }
+    if (state.tab !== "home" || state.topic) {
+      goHome();
+      return true;
+    }
+    return false;
   };
 
   /* ------------------------------------------------ вывод данных */
@@ -1731,7 +1725,18 @@
     $$(".tab").forEach((b) => b.classList.toggle("on", b.dataset.tab === state.tab));
     $("#soundBtn").innerHTML = state.sound ? ICON.sound : ICON.mute;
     $("#soundBtn").classList.toggle("is-muted", !state.sound);
+    $("#modal").innerHTML = state.confirmTrain ? `
+      <div class="modal">
+        <div class="modal-card">
+          <div class="kicker">серия идёт</div>
+          <h3>Прервать серию?</h3>
+          <p>Ответы этой серии не сохранятся: осталось ${Math.max(TOTAL_Q - train.asked, 0)} из ${TOTAL_Q}.</p>
+          <button class="btn-primary wide" data-act="train-abort">Прервать</button>
+          <button class="btn-ghost wide" data-act="train-continue">Продолжить</button>
+        </div>
+      </div>` : "";
     centerActiveChip();
+    syncBackDepth();
   }
 
   /* выбранный чип всегда в середине списка — иначе при смене лада список прыгает к началу */
@@ -2079,9 +2084,31 @@
         break;
 
       case "train-setup":
-        train.started = false;
-        train.finished = false;
+        if (train.started && !train.finished) {
+          state.confirmTrain = true;
+          state.confirmFrom = "mode";
+          render(true);
+        } else {
+          train.started = false;
+          train.finished = false;
+          render(true);
+        }
+        break;
+
+      case "train-continue":
+        state.confirmTrain = false;
         render(true);
+        break;
+
+      case "train-abort":
+        state.confirmTrain = false;
+        if (state.confirmFrom === "mode") {
+          train.started = false;
+          train.finished = false;
+          render(true);
+        } else {
+          goHome();
+        }
         break;
     }
   });
@@ -2180,6 +2207,11 @@
       train.picked = [q0.target[0], miss];
       checkSet();
     } else answerEar((q0.opts.indexOf(q0.kind === "earInt" ? q0.iv : q0.ch) + 1) % q0.opts.length);
+  }
+
+  if (params.get("demo") === "confirm") {
+    startTrain();
+    state.confirmTrain = true;
   }
 
   if (params.get("demo") === "summary") {
