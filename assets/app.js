@@ -163,7 +163,7 @@
   // Системная «назад» всегда ведёт на главную: из теории, круга, грифа, тренажёра.
   // С главной — подсказка «нажмите ещё раз», второе нажатие закрывает приложение.
   function canGoBack() {
-    return state.confirmTrain || state.tab !== "home" || !!state.topic || train.started;
+    return state.confirmTrain || state.tab !== "home" || !!state.topic || train.started || !!state.returnMode;
   }
 
   function syncBackDepth() {
@@ -179,9 +179,23 @@
     train.finished = false;
     state.confirmTrain = false;
     state.topic = null;
+    state.returnMode = null;
     state.tab = "home";
     render(false);
     syncBackDepth();
+  }
+
+  /** Аккорд из «аккордов в тональности» → назад к той же гамме. */
+  function returnToScale() {
+    const r = state.returnMode;
+    if (!r) return false;
+    state.mode = "scale";
+    state.scale = r.scale;
+    state.root = r.root;
+    state.returnMode = null;
+    render(false);
+    syncBackDepth();
+    return true;
   }
 
   window.ladBack = function () {
@@ -198,6 +212,8 @@
       render(true);
       return true;
     }
+    // пришли в аккорд из «аккордов в тональности» — возвращаемся к той же гамме
+    if (returnToScale()) return true;
     if (state.tab !== "home" || state.topic) {
       goHome();
       return true;
@@ -754,9 +770,9 @@
       kicker: "раздел 01 · расстояние между нотами",
       lead: "Интервал — это расстояние между двумя нотами. Аккорды и гаммы складываются именно из интервалов, поэтому начинать проще с них.",
       blocks: [
-        { h: "Считаем полутонами", p: "Самый маленький шаг — <b>полутон</b>: один лад на грифе, одна соседняя клавиша на пианино. Октава — 12 полутонов, и между ними 11 промежутков, у каждого своё имя." },
-        { h: "Почему «большая» и «малая»", p: "Интервал называется по двум вещам: сколько в нём <b>ступеней</b> (считаем ноты по именам — C, D, E…) и сколько <b>полутонов</b>. Одна и та же ступень бывает шире и уже: б.3 — 4 полутона, м.3 — 3. Отсюда большие и малые. Есть ещё <b>чистые</b> (1, 4, 5, 8), <b>увеличенные</b> и <b>уменьшенные</b>: ими обозначают то, что выходит за обычный размер — тритон это ув.4 или ум.5." },
-        { h: "Как слышать", p: "Секунда — две ноты рядом. Терция — «через одну», она и делает аккорд мажорным или минорным. Квинта — самая устойчивая после октавы опора. Тритон — колючий, звучит как вопрос без ответа." }
+        { h: "Что такое интервал", p: "Интервал — расстояние между двумя нотами. Сыграть их по очереди — получится мелодия, вместе — уже почти аккорд. Всё в теории музыки собрано из интервалов: аккорд — из терций, гамма — из секунд." },
+        { h: "Два измерения: ступени и полутоны", p: "У интервала два измерения. Первое — сколько <b>ступеней</b> он занимает: считаем ноты по именам, включая первую (C→E — три ступени: C, D, E). Второе — сколько <b>полутонов</b>: считаем лады на грифе (C→E — четыре лада). Одно и то же расстояние по ступеням бывает шире и уже — отсюда приставки в названии." },
+        { h: "Откуда «большие», «малые» и «чистые»", p: "Секунды, терции, сексты и септимы бывают <b>большими</b> и <b>малыми</b>: б.3 — 4 полутона, м.3 — 3. Примы, кварты, квинты и октавы — <b>чистые</b>: они не тянутся на полутон без смены названия. Если интервал выходит за обычный размер, его называют <b>увеличенным</b> или <b>уменьшенным</b>: тритон — это ув.4 или ум.5, одно и то же расстояние." }
       ],
       table: {
         title: "Все тринадцать интервалов",
@@ -778,9 +794,13 @@
           ["ч.8", "октава", "12"]
         ]
       },
+      after: [
+        { h: "Как слышать", p: "Секунда — две ноты рядом, звучит как шаг. Терция — «через одну»: она и делает аккорд мажорным или минорным. Кварта и квинта — опора и пустота, на них держатся аккорды. Секста и септима — краска, из них получаются септаккорды. Тритон — колючий, звучит как вопрос без ответа." },
+        { h: "Где это на грифе", p: "Полутон — один лад. Кварта — та же нота на соседней струне через пять ладов, кроме перехода G→B: там четыре. Октава — плюс две струны и два лада, а от 3-й струны к 1-й — плюс три лада." }
+      ],
       tips: [
-        "Октава на грифе: +2 струны и +2 лада (с 6-й на 4-ю, с 5-й на 3-ю), +2 струны и +3 лада для 4→2 и 3→1.",
-        "Квинта — та же нота на соседней струне через 5 ладов, кроме перехода G→B: там 4."
+        "Терция решает всё: сыграйте C–E, потом C–E♭ — настроение меняется одной нотой.",
+        "Квинта «пустая» и устойчивая — поэтому квинт-аккорды на перегрузе звучат так мощно."
       ],
       cta: { label: "Показать на круге", act: "open-circle", mode: "interval" }
     },
@@ -875,7 +895,6 @@
     const t = THEORY[id];
     if (!t) return homeScreen();
     return `
-      <button class="back-chip" data-act="theory-back">${ICON.back}Все разделы</button>
       <div class="shead">
         <div>
           <div class="kicker">${t.kicker}</div>
@@ -900,6 +919,7 @@
             ${t.table.rows.map((r) => `
               <div class="dtable-row" style="grid-template-columns:${t.table.w}">${r.map((c) => `<span>${c}</span>`).join("")}</div>`).join("")}
           </div>` : ""}
+        ${(t.after || []).map((b) => `<h2>${b.h}</h2><p>${b.p}</p>`).join("")}
         ${t.tips.map((tip) => `<div class="tip"><div class="k">лайфхак</div><p>${tip}</p></div>`).join("")}
       </div>
       <button class="btn-primary wide" data-act="${t.cta.act}" data-mode="${t.cta.mode}">${t.cta.label}</button>
@@ -1003,10 +1023,6 @@
         <button data-act="mode" data-mode="scale" class="${state.mode === "scale" ? "on" : ""}">Гаммы</button>
       </div>`;
 
-    const back = state.returnMode
-      ? `<button class="back-chip" data-act="back">${ICON.back}<span>К гамме ${ROOT_NAMES[state.returnMode.root]} ${SCALES[state.returnMode.scale].label.toLowerCase()}</span></button>`
-      : "";
-
     return `
       <div class="shead">
         <div>
@@ -1020,7 +1036,6 @@
         <button class="round-btn" data-act="play" aria-label="Слушать" title="Слушать">${ICON.play}</button>
         <button class="round-btn ${state.arp ? "on" : ""}" data-act="arp" aria-label="Арпеджио по нотам" title="Арпеджио">${ICON.arp}</button>
       </div>
-      ${back}
       <div class="wheel-wrap" id="wheelWrap">
         ${wheelHTML()}
         <div class="wheel-center">${wheelCenterHTML()}</div>
@@ -1887,13 +1902,6 @@
         render(false);
         break;
 
-      case "theory-back":
-        if (!window.ladBack()) {
-          state.topic = null;
-          render(false);
-        }
-        break;
-
       case "open-circle":
         pushNav();
         state.mode = el.dataset.mode || state.mode;
@@ -2002,17 +2010,6 @@
         state.inv = 0;
         render(false);
         if (state.sound) playCurrent();
-        break;
-      }
-
-      case "back": {
-        const r = state.returnMode;
-        if (!r) break;
-        state.mode = "scale";
-        state.scale = r.scale;
-        state.root = r.root;
-        state.returnMode = null;
-        render(false);
         break;
       }
 
