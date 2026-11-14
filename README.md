@@ -2,6 +2,8 @@
 
 [![Android](https://github.com/DDaaBBrrOO/guitarchords/actions/workflows/android.yml/badge.svg)](https://github.com/DDaaBBrrOO/guitarchords/actions/workflows/android.yml)
 
+**Скачать APK:** [последний релиз](https://github.com/DDaaBBrrOO/guitarchords/releases/latest) — подписан ключом `CN=LAD`, ставится на Android 7.0+ без интернета и без разрешений.
+
 Четыре варианта дизайна одного Android-приложения: интервалы, построение аккордов,
 ноты в аккордах и гаммы. Всё ядро — хроматический круг из 12 нот, на котором
 одновременно живут интервалы (дуга), аккорды (треугольник) и гаммы (семиугольник).
