@@ -780,14 +780,6 @@
       : `${intervalData().semi} полутонов<br>${intervalData().feel}`;
   }
 
-  function tonesHTML() {
-    const ctx = activeContext();
-    const scale = state.mode === "scale" ? " is-scale" : "";
-    return `<div class="tones${ctx.notes.length >= 6 ? " dense" : ""}${scale}">
-      ${ctx.notes.map((n, i) => `<button class="tone is-${i + 1}" data-act="tone" data-midi="${n.midi}"><b>${n.name}</b><small>${n.deg}</small></button>`).join("")}
-    </div>`;
-  }
-
   function controlsHTML() {
     return state.mode === "interval" ? intervalControls() : state.mode === "scale" ? scaleControls() : chordControls();
   }
@@ -823,7 +815,6 @@
         <div class="wheel-center">${wheelCenterHTML()}</div>
       </div>
       <div class="wheel-hint">тяните фигуру, чтобы сменить тональность</div>
-      ${tonesHTML()}
       <div class="controls card">${controlsHTML()}</div>
       ${state.mode === "scale" ? harmonyBlock() : ""}
       <div style="height:6px"></div>
@@ -1493,9 +1484,6 @@
     if (!wrap) return;
     wrap.innerHTML = wheelHTML() + `<div class="wheel-center">${wheelCenterHTML()}</div>`;
 
-    const tones = $(".tones");
-    if (tones) tones.outerHTML = tonesHTML();
-
     const meta = $(".meta");
     if (meta) meta.innerHTML = circleMeta();
 
@@ -1586,9 +1574,17 @@
 
   document.addEventListener("pointerdown", (e) => {
     if (state.tab !== "circle") return;
-    if (!e.target.closest("#wheelWrap")) return;
+    // тянем только внутри круга: в углах квадрата и вокруг — обычный скролл страницы
+    if (!e.target.closest(".wheel")) return;
     const a = wheelAngle(e);
     if (a === null) return;
+    const note = e.target.closest(".wnode");
+    if (note) {
+      note.classList.add("is-press");
+      drag.pressEl = note;
+    } else {
+      drag.pressEl = null;
+    }
     drag.active = true;
     drag.id = e.pointerId;
     drag.startAngle = a;
@@ -1597,6 +1593,13 @@
     drag.moved = false;
     document.body.classList.add("is-dragging");
   }, { passive: true });
+
+  function releasePress() {
+    if (drag.pressEl) {
+      drag.pressEl.classList.remove("is-press");
+      drag.pressEl = null;
+    }
+  }
 
   document.addEventListener("pointermove", (e) => {
     if (!drag.active || e.pointerId !== drag.id) return;
@@ -1618,6 +1621,7 @@
   function endDrag(e) {
     if (!drag.active || (e && e.pointerId !== drag.id)) return;
     const moved = drag.moved;
+    releasePress();
     drag.active = false;
     drag.id = null;
     drag.moved = false;

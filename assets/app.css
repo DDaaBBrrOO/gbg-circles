@@ -3,7 +3,7 @@
    Один интерфейс · четыре темы
    ============================================================ */
 
-*, *::before, *::after { box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { height: 100%; }
 body {
   margin: 0;
@@ -359,11 +359,16 @@ body[data-theme="score"] { background: #d9d0bd; }
 /* ------------------------------------------------ circle */
 .wheel-wrap {
   position: relative; width: min(100%, 330px); margin: 2px auto 0; aspect-ratio: 1;
-  touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none;
+  touch-action: pan-y; cursor: grab; user-select: none; -webkit-user-select: none;
 }
 body.is-dragging .wheel-wrap { cursor: grabbing; }
 body.is-dragging { overscroll-behavior: none; }
-.wheel-wrap svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.wheel-wrap svg {
+  display: block; width: 100%; height: 100%; overflow: visible;
+  /* жесты ловим только внутри круга: в углах квадрата проходит обычный скролл */
+  clip-path: circle(50% at 50% 50%);
+  touch-action: none;
+}
 .wheel-center { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; pointer-events: none; }
 .wheel-center > * { max-width: 120px; margin-left: auto; margin-right: auto; }
 .wheel-sym {
@@ -382,8 +387,13 @@ body.is-dragging { overscroll-behavior: none; }
 
 .wheel text { font-family: "Manrope", sans-serif; }
 .wnode { cursor: pointer; }
-.wnode .base { fill: var(--node); stroke: var(--node-line); stroke-width: 1; transition: fill .25s ease, stroke .25s ease; }
+.wnode .base { fill: var(--node); stroke: var(--node-line); stroke-width: 1; transition: fill .25s ease, stroke .25s ease, transform .16s ease; transform-box: fill-box; transform-origin: center; }
 .wnode .halo { fill: var(--accent); opacity: 0; transition: opacity .3s ease; }
+/* нажатие: мягкое увеличение и янтарная обводка вместо системного квадрата */
+.wnode.is-press .base { transform: scale(1.13); stroke: var(--accent); stroke-width: 1.6; }
+.wnode.is-press .halo { opacity: .26; }
+.wnode:focus { outline: none; }
+.wnode:focus-visible .base { stroke: var(--accent); stroke-width: 2; }
 .wnode .lbl { fill: var(--ink-2); font-size: 11px; font-weight: 600; letter-spacing: -.02em; }
 .wnode .sol { fill: var(--ink-3); font-size: 5.6px; letter-spacing: .02em; opacity: .6; transition: opacity .2s ease, fill .2s ease; }
 .wnode.is-on .base { fill: var(--accent); stroke: var(--accent); }
@@ -404,30 +414,6 @@ body.is-dragging { overscroll-behavior: none; }
 .wheel .deg { font-family: "JetBrains Mono", monospace; font-size: 6.5px; fill: var(--ink-3); }
 .wheel .deg-strong { fill: var(--accent); font-weight: 600; }
 .wheel .disc { fill: var(--bg); opacity: .94; }
-
-.tones { display: flex; justify-content: center; flex-wrap: wrap; gap: 7px; margin-top: 8px; }
-.tone {
-  display: flex; align-items: center; gap: 7px;
-  height: 32px; padding: 0 11px 0 4px;
-  border: 1px solid var(--line); border-radius: 999px;
-  font-size: 11.5px; font-weight: 600; color: var(--ink-2);
-  background: transparent;
-}
-.tone b { width: 23px; height: 23px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--accent-ink); font-size: 10px; }
-.tone.is-2 b { background: var(--accent-2); color: var(--dot-ink); }
-.tone.is-3 b { background: var(--deg-5); color: var(--dot-ink); }
-.tone.is-4 b { background: var(--deg-7); color: var(--dot-ink); }
-.tone small { font-family: "JetBrains Mono", monospace; font-size: 8.5px; color: var(--ink-3); }
-
-/* гамма: семь тонов должны помещаться в одну строку */
-.tones.dense { gap: 5px; }
-.tones.dense .tone { height: 29px; padding: 0 8px 0 3px; gap: 5px; font-size: 10.5px; }
-.tones.dense .tone b { width: 21px; height: 21px; font-size: 9px; }
-.tones.dense .tone small { font-size: 8px; }
-
-/* в гамме цвет не несёт смысла ступени — красим только тонику */
-.tones.is-scale .tone b { background: var(--surface-2); color: var(--ink-2); }
-.tones.is-scale .tone:first-child b { background: var(--accent); color: var(--accent-ink); }
 
 .play-row { display: flex; gap: 9px; margin-top: 14px; }
 .play-row .btn-primary { flex: 1; }
