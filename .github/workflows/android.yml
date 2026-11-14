@@ -90,8 +90,19 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
-          keytool -list -keystore "$RUNNER_TEMP/keystore/lad.jks" \
-            -storepass "$KEYSTORE_PASSWORD" -alias "${KEY_ALIAS:-lad}"
+          KS="$RUNNER_TEMP/keystore/lad.jks"
+          ALIAS="${KEY_ALIAS:-lad}"
+          SIZE=$(stat -c%s "$KS")
+          if [ "$SIZE" -ne 2594 ]; then
+            echo "::error::KEYSTORE_BASE64 дал $SIZE байт вместо 2594 — значение секрета обрезано или искажено при вставке"
+            exit 1
+          fi
+          if OUT=$(keytool -list -keystore "$KS" -storepass "$KEYSTORE_PASSWORD" -alias "$ALIAS" 2>&1); then
+            echo "$OUT" | head -3
+          else
+            echo "::error::keytool не открыл keystore: $(echo "$OUT" | tail -1). Проверьте KEYSTORE_PASSWORD и KEY_ALIAS"
+            exit 1
+          fi
 
       - name: Assemble release
         working-directory: android
