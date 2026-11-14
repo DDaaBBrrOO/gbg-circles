@@ -172,7 +172,7 @@ body[data-theme="score"] { background: #d9d0bd; }
 /* ------------------------------------------------ top bar */
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
-  gap: 12px; padding: calc(18px + env(safe-area-inset-top, 0px)) 22px 8px; min-height: 58px;
+  gap: 12px; padding: 4px 22px 4px; min-height: 42px;
 }
 .brand {
   display: flex; align-items: center; gap: 9px;

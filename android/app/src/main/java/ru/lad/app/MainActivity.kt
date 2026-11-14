@@ -92,9 +92,9 @@ class MainActivity : Activity() {
         // при отрисовке поверхности.
         root.setOnApplyWindowInsetsListener { view, insets ->
             val (top, bottom) = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                val bars = insets.getInsets(
-                    WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout(),
-                )
+                // только системные панели: displayCutout на части устройств выше статус-бара
+                // и давал лишний отступ сверху
+                val bars = insets.getInsets(WindowInsets.Type.systemBars())
                 bars.top to bars.bottom
             } else {
                 @Suppress("DEPRECATION")
