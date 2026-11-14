@@ -1,0 +1,44 @@
+/* тренажёр: режим, сложность, ответы */
+.setup { padding: 16px 14px; }
+.slabel + .seg { margin-bottom: 16px; }
+.mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0 18px; }
+.mode-card { text-align: left; padding: 11px 12px 12px; border: 1px solid var(--line); border-radius: 14px; background: transparent; transition: border-color .18s, background .18s; }
+.mode-card b { display: block; font-size: 12.5px; font-weight: 650; letter-spacing: -.01em; }
+.mode-card span { display: block; margin-top: 4px; font-size: 10px; line-height: 1.35; color: var(--ink-3); }
+.mode-card.on { border-color: var(--accent); background: var(--accent-fill); }
+[data-theme="score"] .mode-card { border-radius: 3px; }
+
+.seg.three button { font-size: 10.5px; padding: 0 4px; }
+.btn-primary.wide { width: 100%; margin-top: 16px; }
+.btn-primary[disabled] { opacity: .4; box-shadow: none; }
+.btn-ghost { display: block; width: 100%; height: 44px; margin-top: 10px; border: 1px solid var(--line); border-radius: 14px; font-size: 12px; font-weight: 650; color: var(--ink-2); background: transparent; }
+[data-theme="score"] .btn-ghost { border-radius: 3px; font-family: "JetBrains Mono", monospace; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+
+.pad { margin-top: 4px; }
+.pad-count { text-align: center; font-family: "JetBrains Mono", monospace; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); margin-top: -6px; }
+.wnode.is-right .base { fill: var(--accent); stroke: var(--accent); }
+.wnode.is-right .lbl { fill: var(--accent-ink); }
+.wnode.is-right .sol { fill: var(--accent-ink); opacity: .65; }
+.wnode.is-wrong .base { fill: transparent; stroke: var(--ink-3); stroke-dasharray: 3 3; }
+.wnode.is-wrong .lbl { fill: var(--ink-3); }
+.wnode.is-wrong .sol { fill: var(--ink-3); opacity: .5; }
+.wnode.is-miss .base { fill: transparent; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 4 3; }
+.wnode.is-miss .lbl { fill: var(--accent); }
+
+.replay { display: flex; align-items: center; justify-content: center; gap: 9px; width: 100%; height: 54px; margin-top: 14px; border-radius: 16px; background: var(--accent-fill); color: var(--accent); font-weight: 700; font-size: 12.5px; }
+.replay.is-off { background: transparent; border: 1px dashed var(--line); color: var(--ink-3); }
+.replay svg { width: 15px; height: 15px; }
+.quiz-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.opt { min-height: 48px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 12px; font-size: 11.5px; font-weight: 600; line-height: 1.3; color: var(--ink-2); }
+.opt.is-right { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.opt.is-wrong { border-style: dashed; color: var(--ink-3); }
+[data-theme="score"] .opt { border-radius: 3px; font-family: "JetBrains Mono", monospace; font-size: 10px; }
+
+.result { padding: 26px 18px 20px; text-align: center; }
+.result-num { font-family: var(--font-display); font-size: 62px; line-height: 1; letter-spacing: -.05em; color: var(--accent); }
+.result-num span { font-size: 22px; }
+.result-verdict { margin-top: 10px; font-size: 13px; color: var(--ink-2); }
+.stats.inside { margin: 20px 0 4px; }
+.stats.inside .stat { padding: 10px 8px; }
+.quiz-sub { font-size: 13px; font-family: "Manrope", sans-serif; font-weight: 500; letter-spacing: 0; color: var(--ink-3); }
+.fb-text.muted { color: var(--ink-3); }

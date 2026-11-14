@@ -83,6 +83,7 @@
   const params = new URLSearchParams(location.search);
   const state = {
     tab: "home",
+    theme: "air",
     mode: "chord",
     root: 0,
     chord: 0,
@@ -93,6 +94,7 @@
     arp: false,
     neckMode: "chord",
     naturalsOnly: true,
+    returnMode: null,
     quiz: null
   };
 
@@ -209,6 +211,9 @@
     play: '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M8 5.3v13.4L19 12 8 5.3Z"/></svg>',
     arp: SVG('<path d="M4 18.5v-4M8.5 18.5V11M13 18.5V7.5M17.5 18.5V4.5"/>', 18),
     arrow: SVG('<path d="M5 12h14m-5-5 5 5-5 5"/>', 16),
+    back: SVG('<path d="M19 12H5m5-5-5 5 5 5"/>', 16),
+    sun: SVG('<circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4 17 7M7 17l-1.6 1.6"/>', 18),
+    moon: SVG('<path d="M20 14.4A8.4 8.4 0 0 1 9.6 4a8.4 8.4 0 1 0 10.4 10.4Z"/>', 18),
     check: SVG('<path d="m4.5 12.5 5 5 10-11"/>', 16),
     close: SVG('<path d="m6 6 12 12M18 6 6 18"/>', 15)
   };
@@ -389,6 +394,130 @@
       <div class="wheel-name">${ch.feel}</div>`;
   }
 
+  /* ------------------------------------------------ аппликатуры аккорда */
+  const shapesCache = new Map();
+
+  function chordShapes(ch) {
+    const key = state.root + ":" + ch.id;
+    if (shapesCache.has(key)) return shapesCache.get(key);
+    const rootPc = state.root;
+    const pcs = new Set(ch.notes.map((n) => n.pc));
+    const third = ch.notes[1] ? ch.notes[1].pc : null;
+    const last = ch.notes.length >= 4 ? ch.notes[ch.notes.length - 1].pc : null;
+    const found = [];
+    const seen = new Set();
+
+    for (let base = 0; base <= 8 && found.length < 8; base++) {
+      const top = base + 4;
+      const options = [];
+      for (let s = 0; s < 6; s++) {
+        const openPc = TUNING[s] % 12;
+        const frets = [];
+        if (base === 0 && pcs.has(openPc)) frets.push(0);
+        for (let f = Math.max(1, base); f <= top; f++) {
+          if (pcs.has((openPc + f) % 12)) frets.push(f);
+        }
+        options.push(frets);
+      }
+
+      const cur = new Array(6).fill(null);
+      let mutes = 0;
+
+      const walk = (s) => {
+        if (found.length >= 8) return;
+        if (s === 6) {
+          const sounding = cur.filter((f) => f !== null);
+          if (sounding.length < 4) return;
+          const lowIdx = cur.findIndex((f) => f !== null);
+          if ((TUNING[lowIdx] + cur[lowIdx]) % 12 !== rootPc) return;
+          const spread = Math.max(...sounding) - Math.min(...sounding);
+          if (spread > 4) return;
+          const has = (pc) => cur.some((f, i) => f !== null && (TUNING[i] + f) % 12 === pc);
+          if (third !== null && !has(third)) return;
+          if (last !== null && !has(last)) return;
+          const fp = cur.join(",");
+          if (seen.has(fp)) return;
+          seen.add(fp);
+          found.push(cur.slice());
+          return;
+        }
+        for (const f of options[s]) {
+          cur[s] = f;
+          walk(s + 1);
+          cur[s] = null;
+          if (found.length >= 8) return;
+        }
+        if (mutes < 1) { mutes++; cur[s] = null; walk(s + 1); mutes--; }
+      };
+      walk(0);
+    }
+
+    const rank = (a) => a.filter((f) => f !== null).length;
+    const spread = (a) => {
+      const p = a.filter((f) => f !== null);
+      return Math.max(...p) - Math.min(...p);
+    };
+    const low = (a) => Math.min(...a.filter((f) => f !== null));
+    const open = (a) => (low(a) === 0 ? 0 : 1);
+    const shapes = found
+      .sort((a, b) => open(a) - open(b) || rank(b) - rank(a) || low(a) - low(b))
+      .slice(0, 4);
+    shapesCache.set(key, shapes);
+    return shapes;
+  }
+
+  function shapeSVG(frets) {
+    const W = 56, X0 = 9, DX = 8, Y0 = 12, DY = 9.4, FRETS = 5;
+    const H = Y0 + FRETS * DY + 1;
+    const played = frets.filter((f) => f !== null);
+    const minFret = played.length ? Math.min(...played) : 0;
+    const shift = Math.max(0, minFret - 1);
+    const nut = shift === 0;
+    const parts = [];
+
+    for (let k = 0; k <= FRETS; k++) {
+      parts.push(`<line class="sh-fret" x1="${X0 - 3}" y1="${Y0 + k * DY}" x2="${X0 + 5 * DX + 3}" y2="${Y0 + k * DY}"/>`);
+    }
+    for (let s = 0; s < 6; s++) {
+      parts.push(`<line class="sh-str" x1="${X0 + s * DX}" y1="${Y0 + (nut ? 0 : 0.4)}" x2="${X0 + s * DX}" y2="${Y0 + FRETS * DY}" stroke-width="${[1.5, 1.3, 1.1, .95, .8, .7][s]}"/>`);
+    }
+    if (nut) {
+      parts.push(`<line class="sh-nut" x1="${X0 - 3}" y1="${Y0}" x2="${X0 + 5 * DX + 3}" y2="${Y0}"/>`);
+    } else {
+      parts.push(`<text class="sh-base" x="${X0 - 4.5}" y="${Y0 + DY - 2.6}">${shift + 1}</text>`);
+    }
+
+    const barre = (() => {
+      if (shift === 0) return null;
+      const idx = frets.map((f, s) => (f === minFret ? s : -1)).filter((s) => s >= 0);
+      return idx.length >= 2 ? { from: idx[0], to: idx[idx.length - 1] } : null;
+    })();
+
+    frets.forEach((f, s) => {
+      const x = X0 + s * DX;
+      if (f === null) {
+        parts.push(`<path class="sh-mute" d="M${x - 2.4} ${Y0 - 8.6}l4.8 4.8M${x + 2.4} ${Y0 - 8.6}l-4.8 4.8"/>`);
+        return;
+      }
+      if (f === 0) {
+        parts.push(`<circle class="sh-open" cx="${x}" cy="${Y0 - 6.2}" r="2.2"/>`);
+        return;
+      }
+      if (barre && f === minFret && s >= barre.from && s <= barre.to) return;
+      const row = f - shift;
+      parts.push(`<circle class="sh-dot" cx="${x}" cy="${Y0 + (row - 0.5) * DY}" r="2.9"/>`);
+    });
+
+    if (barre) {
+      const x1 = X0 + barre.from * DX;
+      const x2 = X0 + barre.to * DX;
+      const y = Y0 + (minFret - shift - 0.5) * DY;
+      parts.push(`<rect class="sh-dot" x="${(x1 - 2.9).toFixed(2)}" y="${(y - 2.9).toFixed(2)}" width="${(x2 - x1 + 5.8).toFixed(2)}" height="5.8" rx="2.9"/>`);
+    }
+
+    return `<svg viewBox="0 0 ${W} ${H}" class="shape-svg" aria-hidden="true">${parts.join("")}</svg>`;
+  }
+
   /* ------------------------------------------------ отрисовка: гриф */
   function fretboardHTML(opts = {}) {
     const {
@@ -516,9 +645,9 @@
   };
 
   const MODULES = [
-    { n: "01", name: "Интервалы", count: "12 · от примы до октавы", tab: "circle", mode: "interval", glyph: SVG('<circle cx="8" cy="17" r="3"/><circle cx="16" cy="7" r="3"/><path d="M10.4 15.2c1.8-2.6 3.4-4.5 4.6-5.6"/>', 26) },
+    { n: "01", name: "Интервалы", count: "13 · от примы до октавы", tab: "circle", mode: "interval", glyph: SVG('<circle cx="8" cy="17" r="3"/><circle cx="16" cy="7" r="3"/><path d="M10.4 15.2c1.8-2.6 3.4-4.5 4.6-5.6"/>', 26) },
     { n: "02", name: "Аккорды", count: "12 · трезвучия и септы", tab: "circle", mode: "chord", glyph: SVG('<path d="M12 4.5 20.2 19H3.8L12 4.5Z"/><circle cx="12" cy="4.5" r="1.9" fill="currentColor" stroke="none"/><circle cx="20.2" cy="19" r="1.9" fill="currentColor" stroke="none"/><circle cx="3.8" cy="19" r="1.9" fill="currentColor" stroke="none"/>', 26) },
-    { n: "03", name: "Гаммы", count: "12 · лады и пентатоники", tab: "circle", mode: "scale", glyph: SVG('<path d="M4 20v-5M9.3 20V9M14.6 20v-7M20 20V4"/>', 26) },
+    { n: "03", name: "Гаммы", count: "12 ладов · от ионийского", tab: "circle", mode: "scale", glyph: SVG('<path d="M4 20v-5M9.3 20V9M14.6 20v-7M20 20V4"/>', 26) },
     { n: "04", name: "Ноты на грифе", count: "6 струн · 12 ладов", tab: "neck", mode: "notes", glyph: SVG('<path d="M3 7h18M3 12h18M3 17h18M7.5 4v16M12 4v16M16.5 4v16"/>', 26) }
   ];
 
@@ -557,25 +686,12 @@
       <div class="shead">
         <div>
           <div class="kicker">${dateLine()}</div>
-          <h1>Привет, Аня<span class="dot-accent">.</span></h1>
+          <h1>Теория<span class="dot-accent">.</span></h1>
         </div>
+        <div class="meta">4 раздела<br>без интернета</div>
       </div>
-      <p class="lead">Ещё четыре урока — и модуль «Трезвучия» закрыт.</p>
+      <p class="lead">Двенадцать нот — и всё, что из них строится: интервалы, аккорды, гаммы. Начните с круга.</p>
 
-      <div class="card hero">
-        <div class="hero-top">
-          <span class="kicker">Модуль 02 · аккорды</span>
-          <span class="mono">68%</span>
-        </div>
-        <div class="hero-title">Мажорные трезвучия</div>
-        <div class="bar"><i style="width:68%"></i></div>
-        <div class="hero-foot">
-          <span>Урок 4 из 12 · 6 мин</span>
-          <button class="btn-sm" data-act="go" data-tab="circle" data-mode="chord">Продолжить</button>
-        </div>
-      </div>
-
-      <div class="slabel"><span>Модули</span><span>4 из 4</span></div>
       <div class="mod-grid">
         ${MODULES.map((m) => `
           <button class="mod" data-act="go" data-tab="${m.tab}" data-mode="${m.mode}">
@@ -601,12 +717,35 @@
           ${dayChord.notes.map((n, i) => `<span class="note-chip ${i === 1 ? "is-third" : i === 2 ? "is-fifth" : i === 3 ? "is-seventh" : ""}"><b>${n.name}</b>${n.deg}</span>`).join("")}
         </div>
       </div>
+      <div class="pull">
+        <div class="kicker">определение</div>
+        <p>Лад — это <b>семь нот</b>, из которых строится мелодия. Аккорд — <b>три-четыре</b> из них, взятые вместе.</p>
+      </div>
       <div style="height:6px"></div>
     `;
   }
 
-  function circleScreen() {
+  /* части экрана «Круг» — чтобы при перетаскивании обновлять только их */
+  function circleMeta() {
     const ctx = activeContext();
+    return state.mode === "chord" ? `${ctx.notes.length} нот${ctx.notes.length > 4 ? "" : "ы"}<br>тон: ${ROOT_NAMES[state.root]}`
+      : state.mode === "scale" ? `${ctx.notes.length} ступеней<br>${scaleData().sub}`
+      : `${intervalData().semi} полутонов<br>${intervalData().feel}`;
+  }
+
+  function tonesHTML() {
+    const ctx = activeContext();
+    const scale = state.mode === "scale" ? " is-scale" : "";
+    return `<div class="tones${ctx.notes.length >= 6 ? " dense" : ""}${scale}">
+      ${ctx.notes.map((n, i) => `<button class="tone is-${i + 1}" data-act="tone" data-midi="${n.midi}"><b>${n.name}</b><small>${n.deg}</small></button>`).join("")}
+    </div>`;
+  }
+
+  function controlsHTML() {
+    return state.mode === "interval" ? intervalControls() : state.mode === "scale" ? scaleControls() : chordControls();
+  }
+
+  function circleScreen() {
     const seg = `
       <div class="seg" role="tablist">
         <button data-act="mode" data-mode="interval" class="${state.mode === "interval" ? "on" : ""}">Интервалы</button>
@@ -614,9 +753,9 @@
         <button data-act="mode" data-mode="scale" class="${state.mode === "scale" ? "on" : ""}">Гаммы</button>
       </div>`;
 
-    const meta = state.mode === "chord" ? `${ctx.notes.length} нот${ctx.notes.length > 4 ? "" : "ы"}<br>тон: ${ROOT_NAMES[state.root]}`
-      : state.mode === "scale" ? `${ctx.notes.length} ступеней<br>${scaleData().sub}`
-      : `${intervalData().semi} полутонов<br>${intervalData().feel}`;
+    const back = state.returnMode
+      ? `<button class="back-chip" data-act="back">${ICON.back}<span>К гамме ${ROOT_NAMES[state.returnMode.root]} ${SCALES[state.returnMode.scale].label.toLowerCase()}</span></button>`
+      : "";
 
     return `
       <div class="shead">
@@ -624,23 +763,21 @@
           <div class="kicker">12 нот · 12 часов</div>
           <h1>Круг</h1>
         </div>
-        <div class="meta">${meta}</div>
+        <div class="meta">${circleMeta()}</div>
       </div>
-      ${seg}
-      <div class="wheel-wrap">
+      <div class="circle-bar">
+        ${seg}
+        <button class="round-btn" data-act="play" aria-label="Слушать" title="Слушать">${ICON.play}</button>
+        <button class="round-btn ${state.arp ? "on" : ""}" data-act="arp" aria-label="Арпеджио по нотам" title="Арпеджио">${ICON.arp}</button>
+      </div>
+      ${back}
+      <div class="wheel-wrap" id="wheelWrap">
         ${wheelHTML()}
         <div class="wheel-center">${wheelCenterHTML()}</div>
       </div>
-      <div class="tones">
-        ${ctx.notes.map((n, i) => `<button class="tone is-${i + 1}" data-act="tone" data-midi="${n.midi}"><b>${n.name}</b><small>${n.deg}</small></button>`).join("")}
-      </div>
-      <div class="play-row">
-        <button class="btn-primary" data-act="play">${ICON.play}<span>${state.mode === "chord" ? "Слушать аккорд" : state.mode === "scale" ? "Слушать гамму" : "Слушать интервал"}</span></button>
-        <button class="btn-square ${state.arp ? "on" : ""}" data-act="arp" aria-label="Арпеджио по нотам" title="Арпеджио">${ICON.arp}</button>
-      </div>
-      <div class="controls card">
-        ${state.mode === "interval" ? intervalControls() : state.mode === "scale" ? scaleControls() : chordControls()}
-      </div>
+      <div class="wheel-hint">тяните фигуру, чтобы сменить тональность</div>
+      ${tonesHTML()}
+      <div class="controls card">${controlsHTML()}</div>
       ${state.mode === "scale" ? harmonyBlock() : ""}
       <div style="height:6px"></div>
     `;
@@ -767,14 +904,33 @@
       </div>
       <div class="neck-readout" id="neckReadout"><span>Нажми на точку грифа, чтобы услышать ноту</span><b></b></div>
       ${legend}
+      ${mode === "chord" ? shapesBlock() : ""}
       <div style="height:10px"></div>
     `;
   }
 
+  /* аппликатуры выбранного аккорда */
+  function shapesBlock() {
+    const c = chordData();
+    const shapes = chordShapes(c);
+    if (!shapes.length) return "";
+    return `
+      <div class="slabel"><span>Аппликатуры</span><span>${shapes.length} варианта</span></div>
+      <div class="shapes">
+        ${shapes.map((s) => {
+          const base = Math.min(...s.filter((f) => f !== null)) || 0;
+          return `<button class="shape" data-act="shape" data-frets="${s.map((f) => f === null ? "x" : f).join(",")}">
+            ${shapeSVG(s)}
+            <span class="shape-lbl">${base === 0 ? "открытая" : base + " лад"}</span>
+          </button>`;
+        }).join("")}
+      </div>`;
+  }
+
   /* одна струна, 13 ладов — компактный ответ вместо целого грифа */
-  function stringStripHTML({ stringIdx, revealPc = null, chosen = null }) {
+  function stringStripHTML({ stringIdx, revealPc = null, chosen = null, fretCount = 13 }) {
     const W = 340, H = 92;
-    const X0 = 6, X1 = W - 6, N = 13;
+    const X0 = 6, X1 = W - 6, N = fretCount;
     const CW = (X1 - X0) / N;
     const CT = 14, CH = 46;
     const out = [];
@@ -804,67 +960,407 @@
     return `<svg viewBox="0 0 ${W} ${H}" class="strip" role="img" aria-label="Струна ${6 - stringIdx}, лады 0–12">${out.join("")}</svg>`;
   }
 
-  function trainScreen() {
-    if (!state.quiz) newQuestion(true);
-    const q = state.quiz;
-    const targetName = ROOT_NAMES[q.pc];
-    const stringNo = 6 - q.str;
-    const answered = q.chosen !== null;
-    const accuracy = q.asked ? Math.round((q.correct / q.asked) * 100) : 100;
+  /* ------------------------------------------------ тренажёр */
+  const TRAIN_MODES = [
+    { id: "note", name: "Ноты на грифе", hint: "где живёт нота на струне" },
+    { id: "chordNotes", name: "Ноты в аккорде", hint: "собрать состав на колесе" },
+    { id: "buildChord", name: "Сборка аккорда", hint: "по ступеням от тоники" },
+    { id: "buildScale", name: "Сборка гаммы", hint: "отметить ноты лада" },
+    { id: "earInt", name: "Интервалы на слух", hint: "узнать по звучанию" },
+    { id: "earChord", name: "Аккорды на слух", hint: "определить тип" }
+  ];
+  const TOTAL_Q = 10;
+  const NATURAL_PC = [0, 2, 4, 5, 7, 9, 11];
+  const LEVEL_NAMES = ["Новичок", "Уверенный", "Профи"];
 
-    const fb = answered
-      ? `<div class="fb-text ${q.ok ? "ok" : "no"}">${q.ok ? ICON.check : ICON.close}<span>${q.ok ? "Верно — " + targetName + " именно здесь." : "Мимо: " + targetName + " на " + q.diffForString + "."}</span></div>`
-      : `<div class="fb-text" style="color:var(--ink-3)">Нажми на лад, где живёт эта нота</div>`;
+  const train = {
+    started: false,
+    finished: false,
+    mode: "chordNotes",
+    level: 1,
+    topic: "natural",
+    round: 1,
+    asked: 0,
+    correct: 0,
+    streak: 0,
+    best: 0,
+    q: null,
+    picked: [],
+    result: null
+  };
 
+  const randOf = (a) => a[Math.floor(Math.random() * a.length)];
+  const shuffle = (a) => a.slice().sort(() => Math.random() - 0.5);
+
+  function trainRoot() {
+    return train.topic === "natural" ? randOf(NATURAL_PC) : Math.floor(Math.random() * 12);
+  }
+
+  function chordPool() {
+    const ids = [["maj", "min"], ["maj", "min", "7", "maj7", "m7", "sus2", "sus4"], null][train.level - 1];
+    return ids ? CHORDS.filter((c) => ids.indexOf(c.id) >= 0) : CHORDS;
+  }
+
+  function earChordPool() {
+    const ids = [["maj", "min"], ["maj", "min", "7", "maj7", "m7"], null][train.level - 1];
+    return ids ? CHORDS.filter((c) => ids.indexOf(c.id) >= 0) : CHORDS;
+  }
+
+  function scalePool() {
+    const ids = [["major", "minor"], ["major", "minor", "dorian", "mixolydian", "harmonic", "pentamaj", "pentamin"], null][train.level - 1];
+    return ids ? SCALES.filter((s) => ids.indexOf(s.id) >= 0) : SCALES;
+  }
+
+  function intervalPool() {
+    const semis = [[2, 4, 5, 7, 12], [1, 2, 3, 4, 5, 7, 9, 12], null][train.level - 1];
+    return semis ? INTERVALS.filter((i) => semis.indexOf(i.semi) >= 0) : INTERVALS.filter((i) => i.semi > 0);
+  }
+
+  function chordNotesOf(root, ch) {
+    const rn = ROOT_NAMES[root];
+    return ch.notes.map(([semi, step, deg]) => {
+      const pc = (root + semi) % 12;
+      return { pc, name: spell(rn, step, pc), deg };
+    });
+  }
+
+  function scaleNotesOf(root, sc) {
+    const rn = ROOT_NAMES[root];
+    return sc.semi.map((semi, i) => {
+      const pc = (root + semi) % 12;
+      return { pc, name: spell(rn, sc.steps[i], pc), deg: sc.deg[i] };
+    });
+  }
+
+  const uniqPc = (notes) => {
+    const out = [];
+    notes.forEach((n) => { if (out.indexOf(n.pc) < 0) out.push(n.pc); });
+    return out;
+  };
+
+  function newTrainQuestion() {
+    train.picked = [];
+    train.result = null;
+    const mode = train.mode;
+
+    if (mode === "note") {
+      const maxFret = [5, 9, 12][train.level - 1];
+      let str = 0, fret = 0, pc = 0, guard = 0;
+      do {
+        str = Math.floor(Math.random() * 6);
+        fret = Math.floor(Math.random() * (maxFret + 1));
+        pc = (TUNING[str] + fret) % 12;
+      } while (train.topic === "natural" && NATURAL_PC.indexOf(pc) < 0 && ++guard < 60);
+      train.q = { kind: "note", pc, str, fret };
+      return;
+    }
+
+    const root = trainRoot();
+
+    if (mode === "earInt") {
+      const pool = intervalPool();
+      const iv = randOf(pool);
+      const opts = [iv];
+      const rest = shuffle(pool.filter((i) => i !== iv));
+      while (opts.length < Math.min(4, pool.length) && rest.length) opts.push(rest.shift());
+      train.q = { kind: "earInt", root, iv, opts: shuffle(opts) };
+      setTimeout(playEar, 220);
+      return;
+    }
+
+    if (mode === "earChord") {
+      const pool = earChordPool();
+      const ch = randOf(pool);
+      const opts = [ch];
+      const rest = shuffle(pool.filter((c) => c !== ch));
+      while (opts.length < Math.min(4, pool.length) && rest.length) opts.push(rest.shift());
+      const midis = ch.notes.map(([semi]) => 48 + root + semi);
+      train.q = { kind: "earChord", root, ch, opts: shuffle(opts), midis };
+      setTimeout(playEar, 220);
+      return;
+    }
+
+    if (mode === "buildScale") {
+      const sc = randOf(scalePool());
+      train.q = {
+        kind: "set", root, sc, target: uniqPc(scaleNotesOf(root, sc)),
+        title: `Гамма <em>${ROOT_NAMES[root]}</em>`, sub: sc.sub
+      };
+      return;
+    }
+
+    const ch = randOf(chordPool());
+    const target = uniqPc(chordNotesOf(root, ch));
+    train.q = mode === "chordNotes"
+      ? { kind: "set", root, ch, target, title: `Ноты аккорда <em>${ROOT_NAMES[root]}${ch.sym}</em>`, sub: "отметьте их на колесе" }
+      : { kind: "set", root, ch, target, title: `Аккорд от <em>${ROOT_NAMES[root]}</em>`, sub: ch.notes.map((n) => n[2]).join(" · ") };
+  }
+
+  function playEar() {
+    const q = train.q;
+    if (!q || !state.sound) return;
+    if (q.kind === "earInt") strum([48 + q.root, 48 + q.root + q.iv.semi], 0.42, 1.9);
+    if (q.kind === "earChord") strum(q.midis, 0.05, 2.1);
+  }
+
+  function finishQuestion(ok) {
+    train.asked += 1;
+    if (ok) {
+      train.correct += 1;
+      train.streak += 1;
+      train.best = Math.max(train.best, train.streak);
+    } else {
+      train.streak = 0;
+    }
+  }
+
+  function answerNote(fret) {
+    const q = train.q;
+    if (!q || q.kind !== "note" || train.result) return;
+    const pc = (TUNING[q.str] + fret) % 12;
+    const ok = pc === q.pc;
+    train.picked = [fret];
+    train.result = { ok };
+    finishQuestion(ok);
+    if (ok) pluck(TUNING[q.str] + fret, undefined, 1.4, 0.16); else buzz();
+    render(true);
+  }
+
+  function togglePick(pc) {
+    const q = train.q;
+    if (!q || q.kind !== "set" || train.result) return;
+    const i = train.picked.indexOf(pc);
+    if (i < 0) train.picked.push(pc); else train.picked.splice(i, 1);
+    if (state.sound) pluck(60 + pc, undefined, 1.1, 0.11);
+    render(true);
+  }
+
+  function checkSet() {
+    const q = train.q;
+    if (!q || q.kind !== "set" || train.result) return;
+    const right = q.target.slice().sort((a, b) => a - b);
+    const picked = train.picked.slice().sort((a, b) => a - b);
+    const ok = right.length === picked.length && right.every((pc, i) => pc === picked[i]);
+    train.result = { ok, right };
+    finishQuestion(ok);
+    if (ok) strum(right.map((pc) => 48 + pc), 0.05, 1.9); else buzz();
+    render(true);
+  }
+
+  function answerEar(i) {
+    const q = train.q;
+    if (!q || train.result) return;
+    const right = q.kind === "earInt" ? q.iv : q.ch;
+    const ok = q.opts[i] === right;
+    train.result = { ok, pickedIdx: i, rightIdx: q.opts.indexOf(right) };
+    finishQuestion(ok);
+    if (ok) { if (q.kind === "earInt") strum([48 + q.root, 48 + q.root + q.iv.semi], 0.42, 1.9); else strum(q.midis, 0.05, 2.1); }
+    else buzz();
+    render(true);
+  }
+
+  function nextTrain() {
+    if (train.round >= TOTAL_Q) {
+      train.finished = true;
+      render(true);
+      return;
+    }
+    train.round += 1;
+    newTrainQuestion();
+    render(true);
+  }
+
+  function startTrain() {
+    train.started = true;
+    train.finished = false;
+    train.round = 1;
+    train.asked = 0;
+    train.correct = 0;
+    train.streak = 0;
+    train.best = 0;
+    newTrainQuestion();
+    render(true);
+  }
+
+  function trainSetupScreen() {
     return `
       <div class="shead">
         <div>
-          <div class="kicker">Найди ноту на грифе</div>
+          <div class="kicker">10 вопросов · без интернета</div>
           <h1>Тренажёр</h1>
         </div>
-        <div class="meta">серия ${q.streak}<br>вопрос ${q.round}</div>
+        <div class="meta">режим<br>и сложность</div>
       </div>
-      <div class="stats">
-        <div class="stat"><b>${accuracy}%</b><span>точность</span></div>
-        <div class="stat"><b>${q.correct}</b><span>верно</span></div>
-        <div class="stat"><b>${q.best}</b><span>лучшая серия</span></div>
-      </div>
-      <div class="card quiz-card">
-        <div class="kicker">Вопрос ${q.round} · ${["E", "A", "D", "G", "B", "e"][q.str]}</div>
-        <div class="quiz-q">Где нота <em>${targetName}</em><br>на ${stringNo}-й струне?</div>
-        ${stringStripHTML({ stringIdx: q.str, revealPc: answered ? q.pc : null, chosen: answered ? q.chosen : null })}
-        <div class="quiz-fb">
-          ${fb}
-          ${answered ? `<button class="btn-sm" data-act="next">Дальше ${ICON.arrow}</button>` : ""}
+      <div class="card setup">
+        <div class="slabel"><span>Что тренируем</span></div>
+        <div class="mode-grid">
+          ${TRAIN_MODES.map((m) => `<button class="mode-card ${train.mode === m.id ? "on" : ""}" data-act="train-mode" data-mode="${m.id}">
+            <b>${m.name}</b><span>${m.hint}</span>
+          </button>`).join("")}
         </div>
+        <div class="slabel"><span>Сложность</span><span>${LEVEL_NAMES[train.level - 1]}</span></div>
+        <div class="seg three">
+          ${LEVEL_NAMES.map((n, i) => `<button data-act="train-level" data-level="${i + 1}" class="${train.level === i + 1 ? "on" : ""}">${n}</button>`).join("")}
+        </div>
+        <div class="slabel"><span>Тональности</span><span>${train.topic === "natural" ? "без знаков" : "все 12"}</span></div>
+        <div class="seg">
+          <button data-act="train-topic" data-topic="natural" class="${train.topic === "natural" ? "on" : ""}">Без знаков</button>
+          <button data-act="train-topic" data-topic="all" class="${train.topic === "all" ? "on" : ""}">Все</button>
+        </div>
+        <button class="btn-primary wide" data-act="train-start">Начать серию ${ICON.arrow}</button>
       </div>
       <div class="card tip">
-        <span class="num">5</span>
-        <p><b>Строй гитары — E A D G B E.</b> Квинты между струнами (кроме G–B) дают одинаковые рисунки аккордов по всему грифу.</p>
+        <span class="num">${TOTAL_Q}</span>
+        <p><b>Серия — ${TOTAL_Q} вопросов.</b> Сложность меняет набор: «Новичок» держится белых клавиш и простых трезвучий, «Профи» добавляет септы и все тональности.</p>
       </div>
       <div style="height:6px"></div>
     `;
   }
 
-  function newQuestion(silent = false) {
-    const prev = state.quiz || { asked: 0, correct: 0, streak: 0, best: 0, round: 0 };
-    let pc, str;
-    do {
-      pc = Math.floor(Math.random() * 12);
-      str = Math.floor(Math.random() * 6);
-    } while (prev.pc === pc && prev.str === str);
-    const diff = ((pc - (TUNING[str] % 12)) % 12 + 12) % 12;
-    state.quiz = {
-      pc, str,
-      asked: prev.asked,
-      correct: prev.correct,
-      streak: prev.streak,
-      best: prev.best,
-      round: prev.round + 1,
-      chosen: null,
-      ok: null,
-      diffForString: diff === 0 ? "открытой струне" : diff + "-м ладу"
+  function trainSummaryScreen() {
+    const accuracy = train.asked ? Math.round((train.correct / train.asked) * 100) : 0;
+    const verdict = accuracy >= 90 ? "Отличная серия" : accuracy >= 70 ? "Хорошо, но есть над чем работать" : "Стоит повторить теорию";
+    return `
+      <div class="shead">
+        <div>
+          <div class="kicker">серия закончена</div>
+          <h1>Итог</h1>
+        </div>
+        <div class="meta">${TOTAL_Q} вопросов<br>${TRAIN_MODES.filter((m) => m.id === train.mode)[0].name.toLowerCase()}</div>
+      </div>
+      <div class="card result">
+        <div class="result-num">${accuracy}<span>%</span></div>
+        <div class="result-verdict">${verdict}</div>
+        <div class="stats inside">
+          <div class="stat"><b>${train.correct}</b><span>верно</span></div>
+          <div class="stat"><b>${train.asked - train.correct}</b><span>ошибок</span></div>
+          <div class="stat"><b>${train.best}</b><span>лучшая серия</span></div>
+        </div>
+        <button class="btn-primary wide" data-act="train-again">Ещё серию ${ICON.arrow}</button>
+        <button class="btn-ghost wide" data-act="train-setup">Сменить режим</button>
+      </div>
+      <div style="height:6px"></div>
+    `;
+  }
+
+  function padHTML(picked, target, reveal) {
+    const c = 170, R = 122;
+    const rad = (i) => (-90 + i * 30) * Math.PI / 180;
+    const px = (i) => c + R * Math.cos(rad(i));
+    const py = (i) => c + R * Math.sin(rad(i));
+    const out = [`<circle class="rail-soft" cx="${c}" cy="${c}" r="156"/>`];
+
+    for (let i = 0; i < 12; i++) {
+      const on = picked.indexOf(i) >= 0;
+      const right = reveal && target.indexOf(i) >= 0;
+      const wrong = reveal && on && target.indexOf(i) < 0;
+      const miss = reveal && !on && target.indexOf(i) >= 0;
+      out.push(`<g class="wnode ${on ? "is-on" : ""} ${right ? "is-right" : ""} ${wrong ? "is-wrong" : ""} ${miss ? "is-miss" : ""}"
+          data-act="pick" data-pc="${i}" role="button" aria-label="${ROOT_NAMES[i]}, ${SOLFEGE[i]}">
+        <circle class="halo" cx="${px(i).toFixed(1)}" cy="${py(i).toFixed(1)}" r="27"/>
+        <circle class="base" cx="${px(i).toFixed(1)}" cy="${py(i).toFixed(1)}" r="19"/>
+        <text class="lbl" x="${px(i).toFixed(1)}" y="${(py(i) - 1.5).toFixed(1)}" text-anchor="middle">${ROOT_NAMES[i]}</text>
+        <text class="sol" x="${px(i).toFixed(1)}" y="${(py(i) + 8.5).toFixed(1)}" text-anchor="middle">${SOLFEGE[i]}</text>
+      </g>`);
+    }
+
+    const left = target.length - picked.filter((pc) => target.indexOf(pc) >= 0).length;
+    return `<svg viewBox="0 0 340 340" class="wheel pad" role="group" aria-label="Колесо — отметьте ноты">${out.join("")}</svg>
+      <div class="pad-count">${picked.length ? (reveal ? "готово" : "отмечено " + picked.length + " · осталось " + Math.max(left, 0)) : "отметьте ноты на колесе"}</div>`;
+  }
+
+  function trainQuestionScreen() {
+    const q = train.q;
+    const answered = !!train.result;
+    const accuracy = train.asked ? Math.round((train.correct / train.asked) * 100) : 100;
+    const modeName = TRAIN_MODES.filter((m) => m.id === train.mode)[0].name;
+    let head = "", body = "", fb = "";
+
+    if (q.kind === "note") {
+      const name = ROOT_NAMES[q.pc];
+      const diff = ((q.pc - (TUNING[q.str] % 12)) % 12 + 12) % 12;
+      head = `<div class="kicker">вопрос ${train.round} · ${["E", "A", "D", "G", "B", "e"][q.str]}</div>
+        <div class="quiz-q">Где нота <em>${name}</em><br>на ${6 - q.str}-й струне?</div>`;
+      body = stringStripHTML({ stringIdx: q.str, revealPc: answered ? q.pc : null, chosen: answered ? train.picked[0] : null, fretCount: [6, 10, 13][train.level - 1] });
+      fb = answered
+        ? `<div class="fb-text ${train.result.ok ? "ok" : "no"}">${train.result.ok ? ICON.check : ICON.close}<span>${train.result.ok ? "Верно — " + name + " именно здесь." : "Мимо: " + name + " на " + diff + "-м ладу."}</span></div>`
+        : `<div class="fb-text muted">Нажми на лад, где живёт эта нота</div>`;
+    }
+
+    if (q.kind === "set") {
+      const rightNames = q.target.map((pc) => ROOT_NAMES[pc]).join(" · ");
+      head = `<div class="kicker">вопрос ${train.round} · ${modeName.toLowerCase()}</div>
+        <div class="quiz-q">${q.title}<br><span class="quiz-sub">${q.sub}</span></div>`;
+      body = `<div class="pad-wrap">${padHTML(train.picked, q.target, answered)}</div>`;
+      fb = answered
+        ? `<div class="fb-text ${train.result.ok ? "ok" : "no"}">${train.result.ok ? ICON.check : ICON.close}<span>${train.result.ok ? "Точно: " + rightNames : "Нужно было: " + rightNames}</span></div>`
+        : `<button class="btn-primary wide" data-act="check" ${train.picked.length ? "" : "disabled"}>Проверить ${ICON.arrow}</button>`;
+    }
+
+    if (q.kind === "earInt" || q.kind === "earChord") {
+      const isInt = q.kind === "earInt";
+      const right = isInt ? q.iv : q.ch;
+      const rightLabel = isInt ? `${right.name} · ${right.short}` : `${ROOT_NAMES[q.root]}${right.sym} · ${right.label}`;
+      head = `<div class="kicker">вопрос ${train.round} · ${modeName.toLowerCase()}</div>
+        <div class="quiz-q">${isInt ? "Какой интервал звучит?" : "Какой аккорд звучит?"}<br><span class="quiz-sub">${isInt ? "сначала нижний звук, потом верхний" : "аккорд от " + ROOT_NAMES[q.root]}</span></div>`;
+      body = `<button class="replay ${answered ? "is-off" : ""}" data-act="replay" aria-label="Слушать ещё">${ICON.play}<span>${answered ? "сыграть ещё" : "слушать"}</span></button>
+        <div class="quiz-options">
+          ${q.opts.map((o, i) => {
+            const label = isInt ? o.name : `${ROOT_NAMES[q.root]}${o.sym} · ${o.label.toLowerCase()}`;
+            const state2 = answered
+              ? (i === train.result.rightIdx ? "is-right" : i === train.result.pickedIdx ? "is-wrong" : "")
+              : "";
+            return `<button class="opt ${state2}" data-act="ear" data-idx="${i}" ${answered ? "disabled" : ""}>${label}</button>`;
+          }).join("")}
+        </div>`;
+      fb = answered
+        ? `<div class="fb-text ${train.result.ok ? "ok" : "no"}">${train.result.ok ? ICON.check : ICON.close}<span>${train.result.ok ? "Верно — " + rightLabel : "Это " + rightLabel}</span></div>`
+        : `<div class="fb-text muted">Послушайте и выберите вариант</div>`;
+    }
+
+    return `
+      <div class="shead">
+        <div>
+          <div class="kicker">${modeName}</div>
+          <h1>Тренажёр</h1>
+        </div>
+        <div class="meta">серия ${train.streak}<br>вопрос ${train.round} из ${TOTAL_Q}</div>
+      </div>
+      <div class="stats">
+        <div class="stat"><b>${accuracy}%</b><span>точность</span></div>
+        <div class="stat"><b>${train.correct}</b><span>верно</span></div>
+        <div class="stat"><b>${train.best}</b><span>лучшая серия</span></div>
+      </div>
+      <div class="card quiz-card">
+        ${head}
+        ${body}
+        <div class="quiz-fb">
+          ${fb}
+          ${answered ? `<button class="btn-sm" data-act="train-next">${train.round >= TOTAL_Q ? "Итоги" : "Дальше"} ${ICON.arrow}</button>` : ""}
+        </div>
+      </div>
+      <button class="btn-ghost wide" data-act="train-setup">Сменить режим</button>
+      ${trainTip()}
+      <div style="height:6px"></div>
+    `;
+  }
+
+  function trainTip() {
+    const tips = {
+      note: "Строй гитары — E A D G B E. Квинты между струнами (кроме G–B) дают одинаковые рисунки аккордов по всему грифу.",
+      chordNotes: "Ступени 1–3–5 дают трезвучие. Терция решает характер: большая — мажор, малая — минор.",
+      buildChord: "Сначала тоника, потом терция и квинта. Септима (♭7 или 7) добавляет напряжение.",
+      buildScale: "В мажоре полутоны между 3–4 и 7–8 ступенями. Сдвиньте любую ноту — и лад станет другим.",
+      earInt: "Секунда звучит рядом, терция — певуче, кварта и квинта — опора, октава — та же нота выше.",
+      earChord: "Слушайте терцию: мажор светло, минор темнее. Септима добавляет джазовое напряжение."
     };
+    return `<div class="card tip"><span class="num">?</span><p><b>Подсказка.</b> ${tips[train.mode]}</p></div>`;
+  }
+
+  function trainScreen() {
+    if (!train.started) return trainSetupScreen();
+    if (train.finished) return trainSummaryScreen();
+    return trainQuestionScreen();
   }
 
   /* ------------------------------------------------ экраны-таблицы */
@@ -874,16 +1370,59 @@
   const app = $("#app");
   const screenEl = $("#screen");
 
+  /* перерисовка только того, что зависит от тональности — без вспышек */
+  let lastScreenKey = "";
+
+  function patchCircle() {
+    const wrap = $("#wheelWrap");
+    if (!wrap) return;
+    wrap.innerHTML = wheelHTML() + `<div class="wheel-center">${wheelCenterHTML()}</div>`;
+
+    const tones = $(".tones");
+    if (tones) tones.outerHTML = tonesHTML();
+
+    const meta = $(".meta");
+    if (meta) meta.innerHTML = circleMeta();
+
+    const controls = $(".controls");
+    if (controls) {
+      const scrolls = $$(".chips", controls).map((b) => b.scrollLeft);
+      controls.innerHTML = controlsHTML();
+      $$(".chips", controls).forEach((b, i) => { if (scrolls[i]) b.scrollLeft = scrolls[i]; });
+    }
+
+    const harmony = $(".harmony");
+    if (harmony && state.mode === "scale") harmony.outerHTML = harmonyBlock();
+  }
+
   function render(keepScroll = true) {
     const top = keepScroll ? screenEl.scrollTop : 0;
+    const key = `${state.tab}:${state.mode}:${state.neckMode}`;
     screenEl.innerHTML = screens[state.tab]();
     screenEl.scrollTop = top;
-    screenEl.classList.remove("screen-enter");
-    void screenEl.offsetWidth;
-    screenEl.classList.add("screen-enter");
+    // анимация появления — только при смене экрана, иначе каждое нажатие «мигает»
+    if (key !== lastScreenKey) {
+      lastScreenKey = key;
+      screenEl.classList.remove("screen-enter");
+      void screenEl.offsetWidth;
+      screenEl.classList.add("screen-enter");
+    }
     $$(".tab").forEach((b) => b.classList.toggle("on", b.dataset.tab === state.tab));
     $("#soundBtn").innerHTML = state.sound ? ICON.sound : ICON.mute;
     $("#soundBtn").classList.toggle("is-muted", !state.sound);
+    centerActiveChip();
+  }
+
+  /* выбранный чип всегда в середине списка — иначе при смене лада список прыгает к началу */
+  function centerActiveChip() {
+    $$(".chips").forEach((box) => {
+      const on = box.querySelector(".chip.on");
+      if (!on) return;
+      const b = box.getBoundingClientRect();
+      const o = on.getBoundingClientRect();
+      const delta = (o.left - b.left) - (b.width - o.width) / 2;
+      box.scrollLeft += delta;
+    });
   }
 
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -919,8 +1458,68 @@
     }
   }
 
+  /* ------------------------------------------------ колесо: тянем фигуру */
+  let suppressClick = false;
+  const drag = { active: false, id: null, startAngle: 0, startRoot: 0, lastStep: 0, moved: false };
+
+  function wheelAngle(e) {
+    const wrap = $("#wheelWrap");
+    if (!wrap) return null;
+    const r = wrap.getBoundingClientRect();
+    return Math.atan2(e.clientY - (r.top + r.height / 2), e.clientX - (r.left + r.width / 2)) * 180 / Math.PI;
+  }
+
+  document.addEventListener("pointerdown", (e) => {
+    if (state.tab !== "circle") return;
+    if (!e.target.closest("#wheelWrap")) return;
+    const a = wheelAngle(e);
+    if (a === null) return;
+    drag.active = true;
+    drag.id = e.pointerId;
+    drag.startAngle = a;
+    drag.startRoot = state.root;
+    drag.lastStep = 0;
+    drag.moved = false;
+    document.body.classList.add("is-dragging");
+  }, { passive: true });
+
+  document.addEventListener("pointermove", (e) => {
+    if (!drag.active || e.pointerId !== drag.id) return;
+    const a = wheelAngle(e);
+    if (a === null) return;
+    let delta = a - drag.startAngle;
+    if (delta > 180) delta -= 360;
+    if (delta < -180) delta += 360;
+    if (Math.abs(delta) > 5) drag.moved = true;
+    const step = Math.round(delta / 30);
+    if (step === drag.lastStep) return;
+    drag.lastStep = step;
+    const next = ((drag.startRoot + step) % 12 + 12) % 12;
+    if (next === state.root) return;
+    state.root = next;
+    patchCircle();
+  });
+
+  function endDrag(e) {
+    if (!drag.active || (e && e.pointerId !== drag.id)) return;
+    const moved = drag.moved;
+    drag.active = false;
+    drag.id = null;
+    drag.moved = false;
+    drag.lastStep = 0;
+    document.body.classList.remove("is-dragging");
+    if (moved) {
+      suppressClick = true;
+      setTimeout(() => { suppressClick = false; }, 80);
+      if (state.sound) playCurrent();
+    }
+  }
+  document.addEventListener("pointerup", endDrag);
+  document.addEventListener("pointercancel", endDrag);
+
   /* ------------------------------------------------ события */
   document.addEventListener("click", (e) => {
+    if (suppressClick) { suppressClick = false; return; }
     const el = e.target.closest("[data-act]");
     if (!el) return;
     const act = el.dataset.act;
@@ -929,12 +1528,13 @@
       case "tab":
         if (state.tab === el.dataset.tab) return;
         state.tab = el.dataset.tab;
-        if (state.tab === "train" && !state.quiz) newQuestion();
+        state.returnMode = null;
         render(false);
         break;
 
       case "go":
         state.tab = el.dataset.tab || "circle";
+        state.returnMode = null;
         if (el.dataset.mode) {
           if (el.dataset.mode === "notes") {
             state.tab = "neck";
@@ -944,13 +1544,13 @@
             if (state.tab === "neck") state.neckMode = el.dataset.mode;
           }
         }
-        if (state.tab === "train" && !state.quiz) newQuestion();
         render(false);
         break;
 
       case "mode":
         state.mode = el.dataset.mode;
         state.inv = 0;
+        state.returnMode = null;
         render(true);
         break;
 
@@ -1016,6 +1616,7 @@
         break;
 
       case "harmony": {
+        state.returnMode = { scale: state.scale, root: state.root };
         state.mode = "chord";
         state.root = +el.dataset.pc;
         const q = el.dataset.quality;
@@ -1027,37 +1628,82 @@
         break;
       }
 
+      case "back": {
+        const r = state.returnMode;
+        if (!r) break;
+        state.mode = "scale";
+        state.scale = r.scale;
+        state.root = r.root;
+        state.returnMode = null;
+        render(false);
+        break;
+      }
+
+      case "shape": {
+        const frets = el.dataset.frets.split(",").map((f) => (f === "x" ? null : +f));
+        const midis = frets.map((f, s) => (f === null ? null : TUNING[s] + f + 12)).filter((m) => m !== null);
+        if (state.sound) strum(midis, 0.05, 1.9);
+        break;
+      }
+
       case "fret": {
         if (state.tab !== "train") {
-          const pcs = (state.neckMode === "scale" ? scaleData().notes : chordData().notes).map((n) => n.pc);
           const name = ROOT_NAMES[(TUNING[+el.dataset.string] + +el.dataset.fret) % 12];
           const ro = $("#neckReadout");
           if (ro) ro.innerHTML = `<span>${6 - (+el.dataset.string)}-я струна · ${el.dataset.fret} лад</span><b>${name}</b>`;
           pluck(TUNING[+el.dataset.string] + +el.dataset.fret, undefined, 1.2, 0.15);
           break;
         }
-        const q = state.quiz;
-        if (!q || q.chosen !== null) return;
-        const fret = +el.dataset.fret;
-        const pc = (TUNING[q.str] + fret) % 12;
-        q.chosen = fret;
-        q.asked += 1;
-        q.ok = pc === q.pc;
-        if (q.ok) {
-          q.correct += 1;
-          q.streak += 1;
-          q.best = Math.max(q.best, q.streak);
-          pluck(TUNING[q.str] + fret, undefined, 1.4, 0.16);
-        } else {
-          q.streak = 0;
-          buzz();
-        }
-        render(true);
+        answerNote(+el.dataset.fret);
         break;
       }
 
-      case "next":
-        newQuestion();
+      case "pick":
+        togglePick(+el.dataset.pc);
+        break;
+
+      case "check":
+        checkSet();
+        break;
+
+      case "ear":
+        answerEar(+el.dataset.idx);
+        break;
+
+      case "replay":
+        playEar();
+        break;
+
+      case "train-mode":
+        train.mode = el.dataset.mode;
+        render(true);
+        break;
+
+      case "train-level":
+        train.level = +el.dataset.level;
+        render(true);
+        break;
+
+      case "train-topic":
+        train.topic = el.dataset.topic;
+        render(true);
+        break;
+
+      case "train-start":
+        startTrain();
+        break;
+
+      case "train-next":
+        nextTrain();
+        break;
+
+      case "train-again":
+        startTrain();
+        break;
+
+      case "train-setup":
+        train.started = false;
+        train.finished = false;
         render(true);
         break;
     }
@@ -1099,27 +1745,110 @@
     }
   });
 
-  /* ------------------------------------------------ запуск */
-  const theme = params.get("theme") || "air";
-  app.dataset.theme = theme;
-  document.body.dataset.theme = theme;
+  /* ------------------------------------------------ темы: светлая и тёмная */
+  const THEME_KEY = "lad.theme";
 
-  if (state.tab === "train") newQuestion(true);
-
-  // демонстрация ответа для витрины дизайна
-  if (params.get("demo") === "answered" && state.quiz && state.quiz.chosen === null) {
-    const q = state.quiz;
-    const diff = ((q.pc - (TUNING[q.str] % 12)) % 12 + 12) % 12;
-    q.chosen = diff;
-    q.ok = true;
-    q.asked = 1;
-    q.correct = 1;
-    q.streak = 1;
-    q.best = 1;
+  function systemTheme() {
+    try {
+      return window.matchMedia("(prefers-color-scheme: dark)").matches ? "night" : "air";
+    } catch { return "air"; }
   }
 
+  function applyTheme(name, save = true) {
+    state.theme = name;
+    app.dataset.theme = name;
+    document.body.dataset.theme = name;
+    const btn = $("#themeBtn");
+    if (btn) {
+      btn.innerHTML = name === "night" ? ICON.sun : ICON.moon;
+      btn.setAttribute("aria-label", name === "night" ? "Включить светлую тему" : "Включить тёмную тему");
+    }
+    if (save) { try { localStorage.setItem(THEME_KEY, name); } catch { /* приватный режим */ } }
+    // оболочка красит иконки статус-бара под тему (без optional chaining — старые WebView)
+    try {
+      if (window.LadHost && window.LadHost.onTheme) window.LadHost.onTheme(name === "night");
+    } catch (e) { /* нет оболочки */ }
+  }
+
+  const theme = params.get("theme") || (() => {
+    try { return localStorage.getItem(THEME_KEY) || systemTheme(); } catch { return systemTheme(); }
+  })();
+
+  // демонстрация для витрины: ?train=<режим>&demo=train|answered
+  const trainParam = params.get("train");
+  if (trainParam && TRAIN_MODES.some((m) => m.id === trainParam)) train.mode = trainParam;
+  const lvlParam = +params.get("level");
+  if (lvlParam >= 1 && lvlParam <= 3) train.level = lvlParam;
+  const topicParam = params.get("topic");
+  if (topicParam === "all" || topicParam === "natural") train.topic = topicParam;
+
+  if (params.get("demo") === "train" || params.get("demo") === "answered") {
+    startTrain();
+    if (params.get("demo") === "answered") {
+      const q0 = train.q;
+      if (q0.kind === "note") answerNote(q0.fret);
+      else if (q0.kind === "set") { train.picked = q0.target.slice(); checkSet(); }
+      else answerEar(q0.opts.indexOf(q0.kind === "earInt" ? q0.iv : q0.ch));
+    }
+  }
+
+  // витрина: неверный ответ и итог серии
+  if (params.get("demo") === "wrong") {
+    startTrain();
+    const q0 = train.q;
+    if (q0.kind === "note") answerNote((q0.fret + 1) % 13);
+    else if (q0.kind === "set") {
+      const miss = q0.target[1] === undefined ? 1 : (q0.target[1] + 1) % 12;
+      train.picked = [q0.target[0], miss];
+      checkSet();
+    } else answerEar((q0.opts.indexOf(q0.kind === "earInt" ? q0.iv : q0.ch) + 1) % q0.opts.length);
+  }
+
+  if (params.get("demo") === "summary") {
+    startTrain();
+    train.round = TOTAL_Q;
+    train.asked = 10;
+    train.correct = 8;
+    train.best = 6;
+    train.streak = 2;
+    train.finished = true;
+  }
+
+  // для скриншотов витрины: ?demo=harmony показывает чип возврата к гамме
+  if (params.get("demo") === "harmony" && state.mode === "chord") {
+    state.returnMode = { scale: state.scale, root: state.root };
+    state.root = (state.root + 9) % 12;
+    state.chord = 1;
+  }
+
+  applyTheme(theme, false);
   render(false);
+
+  // для скриншотов витрины: ?scroll=520 прокручивает экран к нижнему блоку
+  const scrollParam = params.get("scroll");
+  if (scrollParam) screenEl.scrollTop = +scrollParam;
+
+  // самопроверка перетаскивания: ?test=drag
+  if (params.get("test") === "drag") {
+    const wrap = $("#wheelWrap");
+    if (wrap) {
+      const r = wrap.getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
+      const fire = (type, x, y) => wrap.dispatchEvent(new PointerEvent(type, {
+        bubbles: true, pointerId: 1, clientX: x, clientY: y
+      }));
+      fire("pointerdown", cx, cy - r.width * 0.4);
+      fire("pointermove", cx + r.width * 0.4, cy);
+      document.body.dataset.testRoot = String(state.root);
+      fire("pointerup", cx + r.width * 0.4, cy);
+    }
+  }
 
   // корректная иконка звука при первом рендере
   $("#soundBtn").innerHTML = state.sound ? ICON.sound : ICON.mute;
+
+  $("#themeBtn").addEventListener("click", () => {
+    applyTheme(state.theme === "night" ? "air" : "night");
+  });
 })();

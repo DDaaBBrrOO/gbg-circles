@@ -5,11 +5,14 @@ import android.app.Activity
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.view.View
 import android.view.ViewGroup
 import android.view.WindowInsets
+import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.FrameLayout
 
 /**
  * Тонкая оболочка: весь интерфейс — локальный прототип из assets/www.
@@ -18,22 +21,28 @@ import android.webkit.WebViewClient
 class MainActivity : Activity() {
 
     private lateinit var web: WebView
+    private lateinit var root: FrameLayout
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        window.statusBarColor = Color.parseColor("#09090B")
-        window.navigationBarColor = Color.parseColor("#09090B")
-
         // Android 15 (targetSdk 35) всё равно рисует под системными панелями,
-        // поэтому включаем edge-to-edge явно и отдаём отступы WebView сами.
+        // поэтому включаем edge-to-edge явно и отдаём отступы контейнеру.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             window.setDecorFitsSystemWindows(false)
         }
 
+        root = FrameLayout(this).apply {
+            setBackgroundColor(Color.parseColor("#F7F4EC"))
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+            )
+        }
+
         web = WebView(this).apply {
-            setBackgroundColor(Color.parseColor("#09090B"))
+            setBackgroundColor(Color.parseColor("#F7F4EC"))
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -55,25 +64,51 @@ class MainActivity : Activity() {
 
             webViewClient = WebViewClient()
             webChromeClient = WebChromeClient()
+            addJavascriptInterface(Bridge(), "LadHost")
 
-            setOnApplyWindowInsetsListener { view, insets ->
-                val (top, bottom) = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    val bars = insets.getInsets(
-                        WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout(),
-                    )
-                    bars.top to bars.bottom
-                } else {
-                    @Suppress("DEPRECATION")
-                    insets.systemWindowInsetTop to insets.systemWindowInsetBottom
-                }
-                view.setPadding(0, top, 0, bottom)
-                insets
-            }
-
-            loadUrl("file:///android_asset/www/app.html?theme=night")
+            loadUrl("file:///android_asset/www/app.html")
         }
 
-        setContentView(web)
+        root.addView(web)
+        setContentView(root)
+
+        // Отступы снимает контейнер: у самого WebView padding иногда игнорируется
+        // при отрисовке поверхности.
+        root.setOnApplyWindowInsetsListener { view, insets ->
+            val (top, bottom) = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val bars = insets.getInsets(
+                    WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout(),
+                )
+                bars.top to bars.bottom
+            } else {
+                @Suppress("DEPRECATION")
+                insets.systemWindowInsetTop to insets.systemWindowInsetBottom
+            }
+            view.setPadding(0, top, 0, bottom)
+            insets
+        }
+    }
+
+    /** Мостик для страницы: тема влияет на цвет иконок статус-бара. */
+    inner class Bridge {
+        @JavascriptInterface
+        fun onTheme(dark: Boolean) {
+            runOnUiThread { applySystemBarIcons(dark) }
+        }
+    }
+
+    private fun applySystemBarIcons(dark: Boolean) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val controller = window.insetsController ?: return
+            controller.setSystemBarsAppearance(
+                if (dark) 0 else android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
+                android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            window.decorView.systemUiVisibility =
+                if (dark) 0 else View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+        }
     }
 
     override fun onPause() {
