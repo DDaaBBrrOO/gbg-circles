@@ -943,9 +943,7 @@
       ${mode === "notes" ? `<div class="chips" style="margin-top:10px">
         <button class="chip ${state.naturalsOnly ? "on" : ""}" data-act="naturals" data-v="1">Натуральные</button>
         <button class="chip ${!state.naturalsOnly ? "on" : ""}" data-act="naturals" data-v="0">Все 12</button>
-      </div>` : `<div class="chips" style="margin-top:10px">
-        <span class="chip is-static">${mode === "chord" ? chordData().symbol : scaleData().rootName + " · " + scaleData().label}</span>
-      </div>`}
+      </div>` : ""}
       <div class="card neck-card" style="margin-top:10px">
         ${fretboardHTML({ notes: map, interactive: true })}
       </div>

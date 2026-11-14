@@ -53,6 +53,10 @@ class MainActivity : Activity() {
 
         web = WebView(this).apply {
             setBackgroundColor(initialBg)
+            // отладка вёрстки через chrome://inspect (только debug-сборка)
+            val debuggable = (applicationInfo.flags and
+                android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
+            WebView.setWebContentsDebuggingEnabled(debuggable)
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT,
