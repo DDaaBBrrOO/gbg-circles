@@ -1945,45 +1945,34 @@
   document.addEventListener("pointerup", endDrag);
   document.addEventListener("pointercancel", endDrag);
 
-  /* свайп по грифу: ноты → ступени → интервалы */
-  function flipNeck(dir) {
-    const svg = $("#neckCard") && $("#neckCard").querySelector("svg");
+  // горизонтальный свайп — в тех же зонах, где страница листается вертикально
+  let swipe = null;
+
+  function swipeZone(target) {
+    if (target.closest(".wheel-wrap, .chips, .pad, input, textarea, select")) return null;
+    if (state.tab === "circle") return "mode";
+    if (state.tab === "neck" && state.neckMode !== "notes" && state.neckLabels !== "shape") return "labels";
+    return null;
+  }
+
+  function applyNeckFlip(dir) {
+    const svg = $("#neckCard svg");
     if (!svg) return;
-    svg.style.setProperty("--dir", (dir >= 0 ? 26 : -26) + "px");
+    svg.style.setProperty("--dir", (dir > 0 ? 26 : -26) + "px");
     svg.classList.remove("neck-flip");
     void svg.offsetWidth;
     svg.classList.add("neck-flip");
   }
 
-  let neckSwipe = null;
-  function neckSwipeSwitch(dx) {
+  function cycleNeckLabels(dx) {
     const order = ["notes", "degrees", "intervals"];
     const i = order.indexOf(state.neckLabels);
     const next = order[Math.min(Math.max(i + (dx < 0 ? 1 : -1), 0), order.length - 1)];
     if (next === state.neckLabels) return false;
     state.neckLabels = next;
-    suppressClick = true;
-    render(true);
-    flipNeck(dx < 0 ? 1 : -1);
     return true;
   }
-  document.addEventListener("pointerdown", (e) => {
-    if (!e.target.closest("#neckCard") || state.neckMode === "notes") return;
-    neckSwipe = { x: e.clientX, y: e.clientY };
-  });
-  document.addEventListener("pointermove", (e) => {
-    if (!neckSwipe) return;
-    const dx = e.clientX - neckSwipe.x;
-    const dy = e.clientY - neckSwipe.y;
-    if (Math.abs(dx) < 52 || Math.abs(dx) < Math.abs(dy) * 1.3) return;
-    neckSwipe = null;
-    neckSwipeSwitch(dx);
-  });
-  document.addEventListener("pointerup", () => { neckSwipe = null; });
-  document.addEventListener("pointercancel", () => { neckSwipe = null; });
 
-  /* свайп по бару круга: интервалы → аккорды → гаммы */
-  let circleSwipe = null;
   function switchModeBy(dir) {
     const order = ["interval", "chord", "scale"];
     const i = order.indexOf(state.mode);
@@ -1992,32 +1981,40 @@
     state.mode = next;
     state.returnMode = null;
     state.inv = 0;
-    render(true);
-    const wrap = $(".wheel-wrap");
-    if (wrap) {
-      wrap.style.setProperty("--dir", (dir > 0 ? 34 : -34) + "px");
-      wrap.classList.remove("circle-slide");
-      void wrap.offsetWidth;
-      wrap.classList.add("circle-slide");
-    }
     return true;
   }
+
+  function animateWheel(dir) {
+    const wrap = $(".wheel-wrap");
+    if (!wrap) return;
+    wrap.style.setProperty("--dir", (dir > 0 ? 34 : -34) + "px");
+    wrap.classList.remove("circle-slide");
+    void wrap.offsetWidth;
+    wrap.classList.add("circle-slide");
+  }
+
   document.addEventListener("pointerdown", (e) => {
-    if (state.tab !== "circle") return;
-    if (!e.target.closest(".circle-bar, .wheel-hint")) return;
-    circleSwipe = { x: e.clientX, y: e.clientY };
+    const zone = swipeZone(e.target);
+    if (!zone) return;
+    swipe = { zone, x: e.clientX, y: e.clientY };
   });
   document.addEventListener("pointermove", (e) => {
-    if (!circleSwipe) return;
-    const dx = e.clientX - circleSwipe.x;
-    const dy = e.clientY - circleSwipe.y;
-    if (Math.abs(dx) < 42 || Math.abs(dx) < Math.abs(dy) * 1.3) return;
-    circleSwipe = null;
+    if (!swipe) return;
+    const dx = e.clientX - swipe.x;
+    const dy = e.clientY - swipe.y;
+    if (Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy) * 1.6) return;
+    const zone = swipe.zone;
+    swipe = null;
     suppressClick = true;
-    switchModeBy(dx < 0 ? 1 : -1);
+    if (zone === "mode") {
+      if (switchModeBy(dx < 0 ? 1 : -1)) { render(true); animateWheel(dx < 0 ? 1 : -1); }
+    } else if (cycleNeckLabels(dx)) {
+      render(true);
+      applyNeckFlip(dx < 0 ? 1 : -1);
+    }
   });
-  document.addEventListener("pointerup", () => { circleSwipe = null; });
-  document.addEventListener("pointercancel", () => { circleSwipe = null; });
+  document.addEventListener("pointerup", () => { swipe = null; });
+  document.addEventListener("pointercancel", () => { swipe = null; });
 
   /* ------------------------------------------------ события */
   document.addEventListener("click", (e) => {
@@ -2161,7 +2158,7 @@
       case "necklabels":
         state.neckLabels = el.dataset.v;
         render(true);
-        flipNeck(1);
+        applyNeckFlip(1);
         break;
 
       case "shapes-more":
@@ -2384,6 +2381,19 @@
     state.returnMode = { scale: state.scale, root: state.root };
     state.root = (state.root + 9) % 12;
     state.chord = 1;
+  }
+
+
+  // самопроверка свайпа: ?test=swipe
+  if (params.get("test") === "swipe") {
+    setTimeout(() => {
+      const el = document.elementFromPoint(200, 600) || document.body;
+      const mk = (type, x) => new PointerEvent(type, { bubbles: true, clientX: x, clientY: 600, pointerId: 1, pointerType: "touch", isPrimary: true });
+      el.dispatchEvent(mk("pointerdown", 220));
+      el.dispatchEvent(mk("pointermove", 120));
+      el.dispatchEvent(mk("pointerup", 120));
+      document.body.dataset.testSwipe = state.mode + "/" + state.neckLabels;
+    }, 0);
   }
 
   applyTheme(theme, false);

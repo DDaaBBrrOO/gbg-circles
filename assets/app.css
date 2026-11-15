@@ -531,6 +531,8 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
 .neck-card > svg { display: block; width: 100%; height: auto; }
 .neck-card > svg.neck-flip { animation: neck-flip .26s ease-out; }
 @keyframes neck-flip { from { opacity: .25; transform: translateX(var(--dir, 26px)); } to { opacity: 1; transform: none; } }
+.screen { touch-action: pan-y; }
+.chips { touch-action: pan-x; }
 .circle-bar, .wheel-hint { touch-action: pan-y; }
 .wheel-wrap > svg.circle-slide { animation: circle-slide .28s cubic-bezier(.22, .61, .36, 1); }
 @keyframes circle-slide { from { opacity: .3; transform: translateX(var(--dir, 24px)); } to { opacity: 1; transform: none; } }
