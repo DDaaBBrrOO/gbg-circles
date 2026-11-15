@@ -82,7 +82,12 @@ class MainActivity : Activity() {
             }
 
             webViewClient = WebViewClient()
-            webChromeClient = WebChromeClient()
+            webChromeClient = object : WebChromeClient() {
+                override fun onConsoleMessage(m: android.webkit.ConsoleMessage): Boolean {
+                    android.util.Log.d("LadJS", m.message() + " @" + m.lineNumber())
+                    return true
+                }
+            }
             addJavascriptInterface(Bridge(), "LadHost")
 
             // тему задаёт оболочка: WebView наследует тёмный вид от Material-темы,

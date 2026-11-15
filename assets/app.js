@@ -1822,7 +1822,15 @@
         </div>
       </div>` : "";
     centerActiveChip();
+    markScrollableChips();
     syncBackDepth();
+  }
+
+  /* горизонтальный жест отдаём странице только у реально прокручиваемых рядов чипов */
+  function markScrollableChips() {
+    $$(".chips").forEach((box) => {
+      box.classList.toggle("is-scrollable", box.scrollWidth > box.clientWidth + 4);
+    });
   }
 
   /* выбранный чип всегда в середине списка — иначе при смене лада список прыгает к началу */
@@ -1949,7 +1957,9 @@
   let swipe = null;
 
   function swipeZone(target) {
-    if (target.closest(".wheel-wrap, .chips, .pad, input, textarea, select")) return null;
+    if (target.closest(".wheel-wrap, .pad, input, textarea, select")) return null;
+    const chips = target.closest(".chips");
+    if (chips && chips.scrollWidth > chips.clientWidth + 4) return null;
     if (state.tab === "circle") return "mode";
     if (state.tab === "neck" && state.neckMode !== "notes" && state.neckLabels !== "shape") return "labels";
     return null;
@@ -1993,6 +2003,16 @@
     wrap.classList.add("circle-slide");
   }
 
+  function runSwipe(zone, dx) {
+    suppressClick = true;
+    if (zone === "mode") {
+      if (switchModeBy(dx < 0 ? 1 : -1)) { render(true); animateWheel(dx < 0 ? 1 : -1); }
+    } else if (cycleNeckLabels(dx)) {
+      render(true);
+      applyNeckFlip(dx < 0 ? 1 : -1);
+    }
+  }
+
   document.addEventListener("pointerdown", (e) => {
     const zone = swipeZone(e.target);
     if (!zone) return;
@@ -2005,16 +2025,34 @@
     if (Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy) * 1.6) return;
     const zone = swipe.zone;
     swipe = null;
-    suppressClick = true;
-    if (zone === "mode") {
-      if (switchModeBy(dx < 0 ? 1 : -1)) { render(true); animateWheel(dx < 0 ? 1 : -1); }
-    } else if (cycleNeckLabels(dx)) {
-      render(true);
-      applyNeckFlip(dx < 0 ? 1 : -1);
-    }
+    runSwipe(zone, dx);
   });
   document.addEventListener("pointerup", () => { swipe = null; });
   document.addEventListener("pointercancel", () => { swipe = null; });
+
+  // тач-дубль: на телефоне браузер умеет забирать горизонтальный жест себе
+  let touchSwipe = null;
+  document.addEventListener("touchstart", (e) => {
+    if (e.touches.length !== 1) { touchSwipe = null; return; }
+    const zone = swipeZone(e.target);
+    if (!zone) return;
+    const t = e.touches[0];
+    touchSwipe = { zone, x: t.clientX, y: t.clientY };
+  }, { passive: true });
+  document.addEventListener("touchmove", (e) => {
+    if (!touchSwipe) return;
+    const t = e.touches[0];
+    const dx = t.clientX - touchSwipe.x;
+    const dy = t.clientY - touchSwipe.y;
+    if (Math.abs(dx) < 46 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+    const zone = touchSwipe.zone;
+    touchSwipe = null;
+    swipe = null;
+    if (e.cancelable) e.preventDefault();
+    runSwipe(zone, dx);
+  }, { passive: false });
+  document.addEventListener("touchend", () => { touchSwipe = null; });
+  document.addEventListener("touchcancel", () => { touchSwipe = null; });
 
   /* ------------------------------------------------ события */
   document.addEventListener("click", (e) => {
@@ -2384,15 +2422,16 @@
   }
 
 
-  // самопроверка свайпа: ?test=swipe
+  // самопроверка свайпа: ?test=swipe&tx=120&ty=700
   if (params.get("test") === "swipe") {
     setTimeout(() => {
-      const el = document.elementFromPoint(200, 600) || document.body;
-      const mk = (type, x) => new PointerEvent(type, { bubbles: true, clientX: x, clientY: 600, pointerId: 1, pointerType: "touch", isPrimary: true });
-      el.dispatchEvent(mk("pointerdown", 220));
-      el.dispatchEvent(mk("pointermove", 120));
-      el.dispatchEvent(mk("pointerup", 120));
-      document.body.dataset.testSwipe = state.mode + "/" + state.neckLabels;
+      const tx = +(params.get("tx") || 200), ty = +(params.get("ty") || 600);
+      const el = document.elementFromPoint(tx, ty) || document.body;
+      const mk = (type, x) => new PointerEvent(type, { bubbles: true, clientX: x, clientY: ty, pointerId: 1, pointerType: "touch", isPrimary: true });
+      el.dispatchEvent(mk("pointerdown", tx + 90));
+      el.dispatchEvent(mk("pointermove", tx));
+      el.dispatchEvent(mk("pointerup", tx));
+      document.body.dataset.testSwipe = state.mode + "/" + (el.className || el.tagName);
     }, 0);
   }
 
