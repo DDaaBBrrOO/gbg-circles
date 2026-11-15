@@ -210,6 +210,10 @@
     scale: state.scale,
     neckMode: state.neckMode,
     neckLabels: state.neckLabels,
+    neckShape: state.neckShape,
+    natural: !!state.naturalsOnly,
+    interval: state.interval,
+    accidentals: !!state.naturalsOnly,
     topic: state.topic,
     returnMode: state.returnMode ? state.returnMode.scale : null,
     confirmTrain: !!state.confirmTrain,
@@ -711,7 +715,7 @@
       spots.forEach((sp) => {
         const x = X0 + sp.s * SX;
         const y = sp.f === 0 ? Y0 - 24 : Y0 + (sp.f - 0.5) * FY;
-        out.push(`<g class="fb-dot ${sp.cls || "d1"}">
+        out.push(`<g class="fb-dot ${sp.cls || "d1"}" data-s="${sp.s}" data-f="${sp.f}">
           <circle class="fill" cx="${x}" cy="${y.toFixed(2)}" r="${R}"/>
           ${showNames ? `<text x="${x}" y="${(y + 3.4).toFixed(2)}" text-anchor="middle" style="font-size:${FS}px">${sp.text}</text>` : ""}
         </g>`);
@@ -731,7 +735,7 @@
             : labels === "intervals" ? info.iv
             : info.name;
           const small = labels !== "notes";
-          out.push(`<g class="fb-dot ${info.cls || "d1"}">
+          out.push(`<g class="fb-dot ${info.cls || "d1"}" data-s="${s}" data-f="${f}">
             <circle class="fill" cx="${x}" cy="${y.toFixed(2)}" r="${R}"/>
             ${showNames ? `<text x="${x}" y="${(y + 3.4).toFixed(2)}" text-anchor="middle" style="font-size:${small ? (FS - 1.4).toFixed(1) : FS}px">${txt}</text>` : ""}
           </g>`);
@@ -1073,7 +1077,7 @@
       <div class="shead">
         <div>
           <div class="kicker">12 нот · 12 часов</div>
-          <h1>Круг</h1>
+          <h1>Круг<span class="dot-accent">.</span></h1>
         </div>
         <div class="meta">${circleMeta()}</div>
       </div>
@@ -1154,7 +1158,7 @@
           <span id="ivSemi">${state.interval} полутонов</span>
         </div>
         <input type="range" min="0" max="12" step="1" value="${state.interval}" data-range="interval" style="--fill:${fill}%" aria-label="Количество полутонов">
-        <div class="scale-marks"><span>0</span><span>3</span><span>6</span><span>9</span><span>12</span></div>
+        <div class="scale-marks">${[0, 3, 6, 9, 12].map((v) => `<span style="left:calc(9px + (100% - 18px) * ${(v / 12).toFixed(4)})">${v}</span>`).join("")}</div>
       </div>
     `;
   }
@@ -1232,7 +1236,7 @@
       <div class="shead">
         <div>
           <div class="kicker">Строй E A D G B E</div>
-          <h1>Гриф</h1>
+          <h1>Гриф<span class="dot-accent">.</span></h1>
         </div>
         <div class="meta">${mode === "notes" ? "все струны" : ROOT_NAMES[state.root]}<br>${metaLine}</div>
       </div>
@@ -1597,7 +1601,7 @@
       <div class="shead">
         <div>
           <div class="kicker">10 вопросов · без интернета</div>
-          <h1>Тренажёр</h1>
+          <h1>Тренажёр<span class="dot-accent">.</span></h1>
         </div>
         <div class="meta">режим<br>и сложность</div>
       </div>
@@ -1636,7 +1640,7 @@
       <div class="shead">
         <div>
           <div class="kicker">серия закончена</div>
-          <h1>Итог</h1>
+          <h1>Итог<span class="dot-accent">.</span></h1>
         </div>
         <div class="meta">${TOTAL_Q} вопросов<br>${TRAIN_MODES.filter((m) => m.id === train.mode)[0].name.toLowerCase()}</div>
       </div>
@@ -1744,7 +1748,7 @@
       <div class="shead">
         <div>
           <div class="kicker">${modeName}</div>
-          <h1>Тренажёр</h1>
+          <h1>Тренажёр<span class="dot-accent">.</span></h1>
         </div>
         <div class="meta">серия ${train.streak}<br>вопрос ${train.round} из ${TOTAL_Q}</div>
       </div>
@@ -1909,6 +1913,7 @@
 
   document.addEventListener("pointerdown", (e) => {
     if (state.tab !== "circle") return;
+    if (e.isPrimary === false) return;   // второй палец — это щипок, не вращение
     // тянем только внутри круга: в углах квадрата и вокруг — обычный скролл страницы
     if (!e.target.closest(".wheel")) return;
     const a = wheelAngle(e);
@@ -1928,6 +1933,34 @@
     drag.moved = false;
     document.body.classList.add("is-dragging");
   }, { passive: true });
+
+  // щипок двумя пальцами в круге: меняет интервал (только режим «Интервалы»)
+  let pinch = null;
+  const pinchDist = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+
+  document.addEventListener("touchstart", (e) => {
+    if (state.tab !== "circle" || state.mode !== "interval" || e.touches.length !== 2) return;
+    if (!e.target.closest(".wheel-wrap")) return;
+    drag.active = false;
+    releasePress();
+    pinch = { d0: pinchDist(e.touches[0], e.touches[1]), iv: state.interval };
+  }, { passive: true });
+
+  document.addEventListener("touchmove", (e) => {
+    if (!pinch || e.touches.length !== 2 || state.mode !== "interval") return;
+    if (e.cancelable) e.preventDefault();
+    const d = pinchDist(e.touches[0], e.touches[1]);
+    const next = Math.min(12, Math.max(0, pinch.iv + Math.round((d - pinch.d0) / 15)));
+    if (next === state.interval) return;
+    state.interval = next;
+    patchCircle();
+    if (state.sound) pluck(60 + state.root + next, null, 0.5, 0.12);
+  }, { passive: false });
+
+  document.addEventListener("touchend", (e) => {
+    if (e.touches.length < 2) pinch = null;
+  }, { passive: true });
+  document.addEventListener("touchcancel", () => { pinch = null; }, { passive: true });
 
   function releasePress() {
     if (drag.pressEl) {
@@ -1978,7 +2011,7 @@
     const chips = target.closest(".chips");
     if (chips && chips.scrollWidth > chips.clientWidth + 4) return null;
     if (state.tab === "circle") return "mode";
-    if (state.tab === "neck" && state.neckMode !== "notes" && state.neckLabels !== "shape") return "labels";
+    if (state.tab === "neck") return "neck";
     return null;
   }
 
@@ -1992,11 +2025,22 @@
   }
 
   function cycleNeckLabels(dx) {
-    const order = ["notes", "degrees", "intervals"];
+    const dir = dx < 0 ? 1 : -1;
+    // «Ноты»: свайп переключает натуральные ↔ все 12
+    if (state.neckMode === "notes") {
+      const next = dir > 0;
+      if (next === state.naturalsOnly) return false;
+      state.naturalsOnly = next;
+      return true;
+    }
+    const order = state.neckMode === "chord"
+      ? ["notes", "degrees", "intervals", "shape"]
+      : ["notes", "degrees", "intervals"];
     const i = order.indexOf(state.neckLabels);
-    const next = order[Math.min(Math.max(i + (dx < 0 ? 1 : -1), 0), order.length - 1)];
+    const next = order[Math.min(Math.max(i + dir, 0), order.length - 1)];
     if (next === state.neckLabels) return false;
     state.neckLabels = next;
+    if (next === "shape") state.neckShape = 0;
     return true;
   }
 
@@ -2020,18 +2064,27 @@
     wrap.classList.add("circle-slide");
   }
 
-  function runSwipe(zone, dx, src, x, y) {
-    document.body.dataset.lastSwipe = zone + "/" + src + "/" + Math.round(dx);
+  function runSwipe(zone, dx, src, x, y) {    document.body.dataset.lastSwipe = zone + "/" + src + "/" + Math.round(dx);
     suppressClick = { until: Date.now() + 350, x: x || 0, y: y || 0 };
     if (zone === "mode") {
       if (switchModeBy(dx < 0 ? 1 : -1)) { render(true); animateWheel(dx < 0 ? 1 : -1); }
-    } else if (cycleNeckLabels(dx)) {
-      render(true);
-      applyNeckFlip(dx < 0 ? 1 : -1);
+    } else if (zone === "neck") {
+      if (cycleNeckLabels(dx)) {
+        render(true);
+        applyNeckFlip(dx < 0 ? 1 : -1);
+      }
     }
   }
 
+  function fretPress(el, on) {
+    const hit = el && el.closest && el.closest(".fb-hit");
+    if (!hit) return;
+    const dot = document.querySelector(`.fb-dot[data-s="${hit.dataset.string}"][data-f="${hit.dataset.fret}"]`);
+    if (dot) dot.classList.toggle("is-press", !!on);
+  }
+
   document.addEventListener("pointerdown", (e) => {
+    fretPress(e.target, true);
     const zone = swipeZone(e.target);
     if (!zone) return;
     swipe = { zone, x: e.clientX, y: e.clientY };
@@ -2045,8 +2098,14 @@
     swipe = null;
     runSwipe(zone, dx, "pointer", e.clientX, e.clientY);
   });
-  document.addEventListener("pointerup", () => { swipe = null; });
-  document.addEventListener("pointercancel", () => { swipe = null; });
+  document.addEventListener("pointerup", () => {
+    swipe = null;
+    document.querySelectorAll(".fb-dot.is-press").forEach((d) => d.classList.remove("is-press"));
+  });
+  document.addEventListener("pointercancel", () => {
+    swipe = null;
+    document.querySelectorAll(".fb-dot.is-press").forEach((d) => d.classList.remove("is-press"));
+  });
 
   // тач-дубль: на телефоне браузер умеет забирать горизонтальный жест себе
   let touchSwipe = null;
@@ -2220,6 +2279,7 @@
 
       case "necklabels":
         state.neckLabels = el.dataset.v;
+        if (state.neckLabels === "shape") state.neckShape = 0;
         render(true);
         applyNeckFlip(1);
         break;
@@ -2458,6 +2518,27 @@
       el.dispatchEvent(mk("pointerup", tx));
       document.body.dataset.testSwipe = state.mode + "/" + (el.className || el.tagName);
     }, 0);
+  }
+
+  // самопроверка щипка: ?test=pinch
+  if (params.get("test") === "pinch") {
+    setTimeout(() => {
+      const wrap = $(".wheel-wrap");
+      if (!wrap) return;
+      const r = wrap.getBoundingClientRect();
+      const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      const touch = (x, y) => new Touch({ identifier: x, target: wrap, clientX: x, clientY: y });
+      const ev = (type, t1, t2) => new TouchEvent(type, {
+        bubbles: true, cancelable: true,
+        touches: [touch(t1, cy), touch(t2, cy)],
+        targetTouches: [touch(t1, cy), touch(t2, cy)],
+        changedTouches: [touch(t1, cy), touch(t2, cy)]
+      });
+      const before = state.interval;
+      wrap.dispatchEvent(ev("touchstart", cx - 20, cx + 20));
+      wrap.dispatchEvent(ev("touchmove", cx - 60, cx + 60));
+      document.body.dataset.testPinch = before + "->" + state.interval;
+    }, 60);
   }
 
   applyTheme(theme, false);

@@ -172,11 +172,11 @@ body[data-theme="score"] { background: #d9d0bd; }
 /* ------------------------------------------------ top bar */
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
-  gap: 12px; padding: 4px 22px 4px; min-height: 42px;
+  gap: 12px; padding: 0 20px 0; min-height: 34px;
 }
 .brand {
-  display: flex; align-items: center; gap: 9px;
-  font-family: var(--font-display); font-size: 13px; font-weight: 600;
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-display); font-size: 12px; font-weight: 600;
   letter-spacing: .22em;
 }
 .brand-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
@@ -512,7 +512,8 @@ input[type="range"]::-webkit-slider-thumb {
 input[type="range"]::-moz-range-track { height: 3px; background: var(--line); border-radius: 99px; }
 input[type="range"]::-moz-range-progress { height: 3px; background: var(--accent); border-radius: 99px; }
 input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--bg); border: 2px solid var(--accent); }
-.scale-marks { display: flex; justify-content: space-between; margin-top: 2px; font-family: "JetBrains Mono", monospace; font-size: 7.5px; color: var(--ink-3); letter-spacing: .02em; }
+.scale-marks { position: relative; height: 13px; margin-top: 4px; font-family: "JetBrains Mono", monospace; font-size: 7.5px; color: var(--ink-3); letter-spacing: .02em; }
+.scale-marks span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
 
 .harmony { margin-top: 16px; }
 .harmony-row { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 3px; scrollbar-width: none; }
@@ -533,7 +534,7 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
 @keyframes neck-flip { from { opacity: .25; transform: translateX(var(--dir, 26px)); } to { opacity: 1; transform: none; } }
 .screen, .screen * { touch-action: pan-y; }
 .chips { touch-action: pan-y; }
-.chips.is-scrollable { touch-action: pan-x; }
+.chips.is-scrollable, .chips.is-scrollable * { touch-action: pan-x pan-y; }
 .circle-bar, .wheel-hint { touch-action: pan-y; }
 .wheel-wrap > svg.circle-slide { animation: circle-slide .28s cubic-bezier(.22, .61, .36, 1); }
 @keyframes circle-slide { from { opacity: .3; transform: translateX(var(--dir, 24px)); } to { opacity: 1; transform: none; } }
@@ -553,8 +554,8 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
 .fb-dot.d3 circle.fill { fill: var(--deg-5); }
 .fb-dot.d4 circle.fill { fill: var(--deg-7); }
 .fb-dot.dim { opacity: .42; }
-.fb-hit { fill: transparent; cursor: pointer; }
-.fb-hit:hover { fill: var(--accent); opacity: .08; }
+.fb-hit { fill: transparent; cursor: pointer; outline: none; -webkit-tap-highlight-color: transparent; }
+@media (hover: hover) { .fb-hit:hover { fill: var(--accent); opacity: .08; } }
 .fb-col-hint { fill: var(--accent-fill); }
 
 .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 14px; padding: 0 4px; }
@@ -623,7 +624,7 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
 .strip-num { font-family: "JetBrains Mono", monospace; font-size: 8.5px; fill: var(--ink-3); }
 .strip-num.is-hit { fill: var(--ink-2); }
 .strip-dot-lbl { font-family: "Manrope", sans-serif; font-size: 12px; font-weight: 700; fill: var(--accent-ink); }
-.strip .fb-hit:hover { fill: var(--accent); opacity: .09; }
+@media (hover: hover) { .strip .fb-hit:hover { fill: var(--accent); opacity: .09; } }
 .fb-text { font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
 .fb-text.ok { color: #2f7d51; }
 .fb-text.no { color: var(--accent); }
@@ -842,3 +843,7 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
 
 .card.review { padding: 16px 18px 12px; margin-top: 14px; }
 .card.review .slabel { margin: 0 0 4px; }
+
+.fb-dot .fill { transition: transform .16s ease, stroke .2s ease, stroke-width .2s ease; transform-box: fill-box; transform-origin: center; }
+.fb-dot.is-press .fill { transform: scale(1.18); stroke: var(--accent); stroke-width: 2.6; }
+.fb-dot.is-press text { transform: scale(1.06); transform-box: fill-box; transform-origin: center; }
