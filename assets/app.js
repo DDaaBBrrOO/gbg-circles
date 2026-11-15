@@ -426,6 +426,26 @@
   }
 
   /* ------------------------------------------------ отрисовка: колесо */
+  // геометрия дуги интервала: общая для отрисовки и живого обновления
+  function arcGeometry(rootPc, semi) {
+    const c = 170, R = 145;
+    const rad = (i) => (-90 + i * 30) * Math.PI / 180;
+    if (semi === 12) return { semi, full: true, d: "", lx: c, ly: c + 160 };
+    const a0 = rad(rootPc) + 0.09;
+    const a1 = rad((rootPc + semi) % 12) - 0.09;
+    const large = semi * 30 > 180 ? 1 : 0;
+    const x0 = c + R * Math.cos(a0), y0 = c + R * Math.sin(a0);
+    const x1 = c + R * Math.cos(a1), y1 = c + R * Math.sin(a1);
+    const mid = (rootPc * 30 + (semi * 30) / 2 - 90) * Math.PI / 180;
+    return {
+      semi,
+      full: false,
+      d: `M ${x0.toFixed(1)} ${y0.toFixed(1)} A ${R} ${R} 0 ${large} 1 ${x1.toFixed(1)} ${y1.toFixed(1)}`,
+      lx: c + 160 * Math.cos(mid),
+      ly: c + 160 * Math.sin(mid) + 3
+    };
+  }
+
   function wheelHTML() {
     const ctx = activeContext();
     const active = new Set(ctx.notes.map((n) => n.pc));
@@ -460,23 +480,12 @@
       }
     }
 
-    // дуга интервала
+    // дуга интервала: путь и «полный круг» рисуются всегда, видимость переключается
     if (state.mode === "interval") {
-      const iv = INTERVALS[state.interval];
-      if (iv.semi === 12) {
-        out.push(`<circle class="arc" cx="${c}" cy="${c}" r="145" stroke-dasharray="3 6" opacity=".8"/>`);
-        out.push(`<text class="arc-label" x="${c}" y="${c + 160}" text-anchor="middle">+12</text>`);
-      } else if (iv.semi > 0) {
-        const a0 = rad(ctx.root) + 0.09;
-        const a1 = rad((ctx.root + iv.semi) % 12) - 0.09;
-        const large = iv.semi * 30 > 180 ? 1 : 0;
-        const x0 = c + 145 * Math.cos(a0), y0 = c + 145 * Math.sin(a0);
-        const x1 = c + 145 * Math.cos(a1), y1 = c + 145 * Math.sin(a1);
-        out.push(`<path class="arc" d="M ${x0.toFixed(1)} ${y0.toFixed(1)} A 145 145 0 ${large} 1 ${x1.toFixed(1)} ${y1.toFixed(1)}"/>`);
-        const mid = (ctx.root * 30 + (iv.semi * 30) / 2 - 90) * Math.PI / 180;
-        const lx = c + 160 * Math.cos(mid), ly = c + 160 * Math.sin(mid);
-        out.push(`<text class="arc-label" x="${lx.toFixed(1)}" y="${(ly + 3).toFixed(1)}" text-anchor="middle">+${iv.semi}</text>`);
-      }
+      const g = arcGeometry(ctx.root, INTERVALS[state.interval].semi);
+      out.push(`<circle class="arc arc-full" cx="${c}" cy="${c}" r="145" stroke-dasharray="3 6" opacity=".8" style="display:${g.full ? "" : "none"}"/>`);
+      out.push(`<path class="arc arc-path" d="${g.d}" style="display:${g.full || g.semi === 0 ? "none" : ""}"/>`);
+      out.push(`<text class="arc-label" x="${g.lx.toFixed(1)}" y="${g.ly.toFixed(1)}" text-anchor="middle" style="display:${g.semi === 0 ? "none" : ""}">+${g.semi}</text>`);
     }
 
     // подписи ступеней — на самих нотах, чтобы круг дышал
@@ -1936,7 +1945,49 @@
 
   // щипок двумя пальцами в круге: меняет интервал (только режим «Интервалы»)
   let pinch = null;
+  let pinchSoundAt = 0;
   const pinchDist = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+
+  // живое обновление колеса без перерисовки: жест не должен обрываться
+  function patchWheelLive() {
+    const center = $(".wheel-center");
+    if (center) center.innerHTML = wheelCenterHTML();
+    const meta = $(".meta");
+    if (meta) meta.innerHTML = circleMeta();
+    if (state.mode !== "interval") return;
+
+    const ctx = activeContext();
+    const active = new Set(ctx.notes.map((n) => n.pc));
+    $$(".wheel .wnode").forEach((g) => {
+      const pc = +g.dataset.pc;
+      const on = active.has(pc);
+      g.classList.toggle("is-on", on);
+      g.classList.toggle("is-root", pc === ctx.root);
+      const base = g.querySelector(".base");
+      if (base) base.setAttribute("r", on ? 19 : 16);
+      const sol = g.querySelector(".sol");
+      if (sol) {
+        const n = ctx.notes.find((x) => x.pc === pc);
+        sol.textContent = n ? n.deg : SOLFEGE[pc];
+      }
+    });
+
+    const geo = arcGeometry(ctx.root, INTERVALS[state.interval].semi);
+    const path = $(".wheel .arc-path");
+    const full = $(".wheel .arc-full");
+    const label = $(".wheel .arc-label");
+    if (path) {
+      path.setAttribute("d", geo.d);
+      path.style.display = geo.full || geo.semi === 0 ? "none" : "";
+    }
+    if (full) full.style.display = geo.full ? "" : "none";
+    if (label) {
+      label.style.display = geo.semi === 0 ? "none" : "";
+      label.textContent = "+" + geo.semi;
+      label.setAttribute("x", geo.lx.toFixed(1));
+      label.setAttribute("y", geo.ly.toFixed(1));
+    }
+  }
 
   document.addEventListener("touchstart", (e) => {
     if (state.tab !== "circle" || state.mode !== "interval" || e.touches.length !== 2) return;
@@ -1950,17 +2001,28 @@
     if (!pinch || e.touches.length !== 2 || state.mode !== "interval") return;
     if (e.cancelable) e.preventDefault();
     const d = pinchDist(e.touches[0], e.touches[1]);
-    const next = Math.min(12, Math.max(0, pinch.iv + Math.round((d - pinch.d0) / 15)));
+    const next = Math.min(12, Math.max(0, pinch.iv + Math.round((d - pinch.d0) / 12)));
     if (next === state.interval) return;
     state.interval = next;
-    patchCircle();
-    if (state.sound) pluck(60 + state.root + next, null, 0.5, 0.12);
+    patchWheelLive();
+    const now = Date.now();
+    if (state.sound && now - pinchSoundAt > 110) {
+      pinchSoundAt = now;
+      pluck(60 + state.root + INTERVALS[next].semi, null, 0.5, 0.12);
+    }
   }, { passive: false });
 
   document.addEventListener("touchend", (e) => {
-    if (e.touches.length < 2) pinch = null;
+    if (!pinch) return;
+    if (e.touches.length >= 2) return;
+    pinch = null;
+    patchCircle();
   }, { passive: true });
-  document.addEventListener("touchcancel", () => { pinch = null; }, { passive: true });
+  document.addEventListener("touchcancel", () => {
+    if (!pinch) return;
+    pinch = null;
+    patchCircle();
+  }, { passive: true });
 
   function releasePress() {
     if (drag.pressEl) {
@@ -2026,9 +2088,9 @@
 
   function cycleNeckLabels(dx) {
     const dir = dx < 0 ? 1 : -1;
-    // «Ноты»: свайп переключает натуральные ↔ все 12
+    // «Ноты»: влево — все 12, вправо — только натуральные
     if (state.neckMode === "notes") {
-      const next = dir > 0;
+      const next = dir < 0;
       if (next === state.naturalsOnly) return false;
       state.naturalsOnly = next;
       return true;
@@ -2527,17 +2589,18 @@
       if (!wrap) return;
       const r = wrap.getBoundingClientRect();
       const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-      const touch = (x, y) => new Touch({ identifier: x, target: wrap, clientX: x, clientY: y });
+      const touch = (x) => new Touch({ identifier: Math.round(x), target: wrap, clientX: x, clientY: cy });
       const ev = (type, t1, t2) => new TouchEvent(type, {
         bubbles: true, cancelable: true,
-        touches: [touch(t1, cy), touch(t2, cy)],
-        targetTouches: [touch(t1, cy), touch(t2, cy)],
-        changedTouches: [touch(t1, cy), touch(t2, cy)]
+        touches: [touch(t1), touch(t2)],
+        targetTouches: [touch(t1), touch(t2)],
+        changedTouches: [touch(t1), touch(t2)]
       });
       const before = state.interval;
       wrap.dispatchEvent(ev("touchstart", cx - 20, cx + 20));
-      wrap.dispatchEvent(ev("touchmove", cx - 60, cx + 60));
+      [30, 50, 70, 90].forEach((sp) => wrap.dispatchEvent(ev("touchmove", cx - sp, cx + sp)));
       document.body.dataset.testPinch = before + "->" + state.interval;
+      wrap.dispatchEvent(ev("touchend", cx - 90, cx + 90));
     }, 60);
   }
 

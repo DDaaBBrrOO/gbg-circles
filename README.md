@@ -1,4 +1,4 @@
-# ЛАД — приложение по теории музыки для гитаристов
+# GBG CIRCLES — приложение по теории музыки для гитаристов
 
 [![Android](https://github.com/DDaaBBrrOO/guitarchords/actions/workflows/android.yml/badge.svg)](https://github.com/DDaaBBrrOO/guitarchords/actions/workflows/android.yml)
 

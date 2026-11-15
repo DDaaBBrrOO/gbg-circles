@@ -175,11 +175,12 @@ body[data-theme="score"] { background: #d9d0bd; }
   gap: 12px; padding: 0 20px 0; min-height: 34px;
 }
 .brand {
-  display: flex; align-items: center; gap: 8px;
-  font-family: var(--font-display); font-size: 12px; font-weight: 600;
-  letter-spacing: .22em;
+  display: block; white-space: nowrap;
+  font-family: var(--font-display); font-size: 11px; font-weight: 600;
+  letter-spacing: .1em;
 }
 .brand-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
+.brand-sep { color: var(--accent); margin: 0 -.02em; }
 [data-theme="score"] .brand { font-family: "Playfair Display", serif; font-weight: 600; letter-spacing: .1em; font-size: 16px; }
 [data-theme="score"] .brand-dot { border-radius: 0; transform: rotate(45deg); width: 6px; height: 6px; }
 .top-actions { display: flex; align-items: center; gap: 8px; }
