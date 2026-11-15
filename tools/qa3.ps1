@@ -53,7 +53,7 @@ Write-Output "== ГЛАВНАЯ: назад дважды =="
 Tap 155 2185
 & $adb shell input keyevent KEYCODE_BACK | Out-Null; Start-Sleep -Milliseconds 700
 & $adb shell input keyevent KEYCODE_BACK | Out-Null; Start-Sleep -Milliseconds 1200
-& $adb shell am start -n "ru.lad.app.debug/ru.lad.app.MainActivity" | Out-Null
+& $adb shell am start -n "com.gbg.circles.debug/com.gbg.circles.MainActivity" | Out-Null
 Start-Sleep -Milliseconds 1500
 Connect-Cdp | Out-Null
 Write-Output ("  приложение после двойного «назад»: tab={0} (ожидание home)" -f (St).tab)

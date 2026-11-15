@@ -22,11 +22,11 @@ val syncWebAssets = tasks.register<Sync>("syncWebAssets") {
 tasks.named("preBuild").configure { dependsOn(syncWebAssets) }
 
 android {
-    namespace = "ru.lad.app"
+    namespace = "com.gbg.circles"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "ru.lad.app"
+        applicationId = "com.gbg.circles"
         minSdk = 24
         targetSdk = 35
         versionCode = 1

@@ -18,7 +18,7 @@ function Swipe($a, $b, $c, $d, $ms = 280) { & $adb shell input swipe $a $b $c $d
 
 & $adb shell input keyevent KEYCODE_WAKEUP | Out-Null
 & $adb shell wm dismiss-keyguard | Out-Null
-& $adb shell am start -n "ru.lad.app.debug/ru.lad.app.MainActivity" | Out-Null
+& $adb shell am start -n "com.gbg.circles.debug/com.gbg.circles.MainActivity" | Out-Null
 Start-Sleep -Seconds 3
 Connect-Cdp | Out-Null
 

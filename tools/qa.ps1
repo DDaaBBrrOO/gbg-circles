@@ -26,7 +26,7 @@ function Back { & $adb shell input keyevent KEYCODE_BACK | Out-Null; Start-Sleep
 & $adb shell input keyevent KEYCODE_WAKEUP | Out-Null
 Start-Sleep -Milliseconds 600
 & $adb shell wm dismiss-keyguard | Out-Null
-& $adb shell am start -n "ru.lad.app.debug/ru.lad.app.MainActivity" | Out-Null
+& $adb shell am start -n "com.gbg.circles.debug/com.gbg.circles.MainActivity" | Out-Null
 Start-Sleep -Seconds 3
 if (-not (Connect-Cdp)) { exit 1 }
 

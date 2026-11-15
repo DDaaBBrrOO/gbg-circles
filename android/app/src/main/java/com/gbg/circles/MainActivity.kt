@@ -1,4 +1,4 @@
-package ru.lad.app
+package com.gbg.circles
 
 import android.annotation.SuppressLint
 import android.app.Activity

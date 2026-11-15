@@ -14,8 +14,8 @@ $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $PSScriptRoot
 $adb = Join-Path $root ".toolchain\sdk\platform-tools\adb.exe"
-$pkg = "ru.lad.app.debug"
-$activity = "$pkg/ru.lad.app.MainActivity"
+$pkg = "com.gbg.circles.debug"
+$activity = "$pkg/com.gbg.circles.MainActivity"
 
 if (-not (Test-Path $adb)) { throw "Нет adb в $adb" }
 if (-not $Apk) { $Apk = Join-Path $root "android\app\build\outputs\apk\debug\app-debug.apk" }
