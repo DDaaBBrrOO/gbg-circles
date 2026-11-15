@@ -527,8 +527,12 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
 [data-theme="score"] .harmony-row button { border-radius: 2px; }
 
 /* ------------------------------------------------ neck */
-.neck-card { padding: 12px 8px 6px; overflow: hidden; }
+.neck-card { padding: 12px 8px 6px; overflow: hidden; touch-action: pan-y; }
 .neck-card > svg { display: block; width: 100%; height: auto; }
+.neck-card > svg.neck-flip { animation: neck-flip .26s ease-out; }
+@keyframes neck-flip { from { opacity: .25; transform: translateX(var(--dir, 26px)); } to { opacity: 1; transform: none; } }
+.label-chips { margin-top: 10px; }
+.legend em { font-style: normal; color: var(--ink-3); opacity: .8; }
 .fb-string { stroke: var(--line); }
 .fb-fret { stroke: var(--line); stroke-width: 1; opacity: .9; }
 .fb-nut { stroke: var(--ink-2); stroke-width: 4; stroke-linecap: round; }

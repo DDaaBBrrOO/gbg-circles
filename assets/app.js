@@ -138,6 +138,7 @@
     arp: false,
     neckMode: "chord",
     naturalsOnly: true,
+    neckLabels: "notes",
     moreShapes: false,
     returnMode: null,
     topic: null,
@@ -152,8 +153,9 @@
   if (screenParam === "intervals") { state.tab = "circle"; state.mode = "interval"; }
   const rootParam = params.get("root");
   if (rootParam !== null && +rootParam >= 0 && +rootParam <= 11) state.root = +rootParam;
-  const modeParam = params.get("mode");
-  if (["chord", "scale", "interval"].includes(modeParam)) {
+  const labelsParam = params.get("labels");
+  if (["notes", "degrees", "intervals"].includes(labelsParam)) state.neckLabels = labelsParam;
+  const modeParam = params.get("mode");  if (["chord", "scale", "interval"].includes(modeParam)) {
     state.mode = modeParam;
     if (state.tab === "home") state.tab = "circle";
     if (state.tab === "neck") state.neckMode = modeParam === "interval" ? "notes" : modeParam;
@@ -633,12 +635,13 @@
   /* ------------------------------------------------ отрисовка: гриф */
   function fretboardHTML(opts = {}) {
     const {
-      notes = null,          // массив 12: {name, deg, cls} | null
+      notes = null,          // массив 12: {name, deg, cls, iv} | null
       interactive = false,
       onlyPc = null,
       onlyString = null,
       chosen = null,
-      showNames = true
+      showNames = true,
+      labels = "notes"       // notes | degrees | intervals — что подписано в точках
     } = opts;
 
     // вертикальный гриф: струны слева направо, лады сверху вниз — вся октава видна без прокрутки
@@ -691,9 +694,13 @@
           if (!info) continue;
           const x = X0 + s * SX;
           const y = f === 0 ? Y0 - 24 : Y0 + (f - 0.5) * FY;
+          const txt = labels === "degrees" ? info.deg
+            : labels === "intervals" ? info.iv
+            : info.name;
+          const small = labels !== "notes";
           out.push(`<g class="fb-dot ${info.cls || "d1"}">
             <circle class="fill" cx="${x}" cy="${y.toFixed(2)}" r="${R}"/>
-            ${showNames ? `<text x="${x}" y="${(y + 3.6).toFixed(2)}" text-anchor="middle" style="font-size:${FS}px">${info.name}</text>` : ""}
+            ${showNames ? `<text x="${x}" y="${(y + 3.4).toFixed(2)}" text-anchor="middle" style="font-size:${small ? (FS - 1.4).toFixed(1) : FS}px">${txt}</text>` : ""}
           </g>`);
         }
       }
@@ -729,7 +736,13 @@
       if (seen.has(n.pc)) return;
       const idx = seen.size;
       seen.set(n.pc, true);
-      map[n.pc] = { name: n.name, deg: n.deg, cls: mono ? (idx === 0 ? "d1" : "d3") : classes[Math.min(idx, 3)] };
+      const semi = (n.pc - state.root + 12) % 12;
+      map[n.pc] = {
+        name: n.name,
+        deg: n.deg,
+        iv: (INTERVALS[semi] || INTERVALS[0]).short,
+        cls: mono ? (idx === 0 ? "d1" : "d3") : classes[Math.min(idx, 3)]
+      };
     });
     return map;
   }
@@ -1128,6 +1141,7 @@
 
   function neckScreen() {
     const mode = state.neckMode;
+    const labels = mode === "notes" ? "notes" : state.neckLabels;
     let map, legend = "", metaLine = "";
     if (mode === "notes") {
       map = state.naturalsOnly ? naturalMap() : allMap();
@@ -1136,14 +1150,25 @@
     } else if (mode === "scale") {
       const s = scaleData();
       map = noteMap(s.notes, true);
-      legend = `<div class="legend"><span><i style="background:var(--accent)"></i>${s.notes[0].name} — тоника</span><span><i style="background:var(--deg-5)"></i>ступени лада</span></div>`;
+      legend = `<div class="legend"><span><i style="background:var(--accent)"></i>${s.notes[0].name} — тоника</span><span><i style="background:var(--deg-5)"></i>${state.neckLabels === "intervals" ? "интервалы от тоники" : "ступени лада"}</span></div>`;
       metaLine = s.label;
     } else {
       const c = chordData();
       map = noteMap(c.notes);
-      legend = `<div class="legend">${c.notes.map((n, i) => `<span><i style="background:${["var(--accent)", "var(--accent-2)", "var(--deg-5)", "var(--deg-7)"][i]}"></i>${n.deg} — ${n.name}</span>`).join("")}</div>`;
+      legend = `<div class="legend">${c.notes.map((n, i) => {
+        const iv = (INTERVALS[(n.pc - state.root + 12) % 12] || INTERVALS[0]).short;
+        const main = labels === "degrees" ? n.deg : labels === "intervals" ? iv : n.deg;
+        return `<span><i style="background:${["var(--accent)", "var(--accent-2)", "var(--deg-5)", "var(--deg-7)"][i]}"></i>${main}${main === n.name ? "" : ` — ${n.name}`}</span>`;
+      }).join("")}</div>`;
       metaLine = c.label;
     }
+
+    const labelChips = mode === "notes" ? "" : `
+      <div class="chips label-chips">
+        ${[["notes", "Ноты"], ["degrees", "Ступени"], ["intervals", "Интервалы"]].map(([id, text]) =>
+          `<button class="chip ${state.neckLabels === id ? "on" : ""}" data-act="necklabels" data-v="${id}">${text}</button>`).join("")}
+      </div>`;
+
     return `
       <div class="shead">
         <div>
@@ -1160,9 +1185,9 @@
       ${mode === "notes" ? `<div class="chips" style="margin-top:10px">
         <button class="chip ${state.naturalsOnly ? "on" : ""}" data-act="naturals" data-v="1">Натуральные</button>
         <button class="chip ${!state.naturalsOnly ? "on" : ""}" data-act="naturals" data-v="0">Все 12</button>
-      </div>` : ""}
-      <div class="card neck-card" style="margin-top:10px">
-        ${fretboardHTML({ notes: map, interactive: true })}
+      </div>` : labelChips}
+      <div class="card neck-card" id="neckCard" style="margin-top:10px">
+        ${fretboardHTML({ notes: map, interactive: true, labels })}
       </div>
       <div class="neck-readout" id="neckReadout"><span>Нажми на точку грифа, чтобы услышать ноту</span><b></b></div>
       ${legend}
@@ -1874,6 +1899,43 @@
   document.addEventListener("pointerup", endDrag);
   document.addEventListener("pointercancel", endDrag);
 
+  /* свайп по грифу: ноты → ступени → интервалы */
+  function flipNeck(dir) {
+    const svg = $("#neckCard") && $("#neckCard").querySelector("svg");
+    if (!svg) return;
+    svg.style.setProperty("--dir", (dir >= 0 ? 26 : -26) + "px");
+    svg.classList.remove("neck-flip");
+    void svg.offsetWidth;
+    svg.classList.add("neck-flip");
+  }
+
+  let neckSwipe = null;
+  function neckSwipeSwitch(dx) {
+    const order = ["notes", "degrees", "intervals"];
+    const i = order.indexOf(state.neckLabels);
+    const next = order[Math.min(Math.max(i + (dx < 0 ? 1 : -1), 0), order.length - 1)];
+    if (next === state.neckLabels) return false;
+    state.neckLabels = next;
+    suppressClick = true;
+    render(true);
+    flipNeck(dx < 0 ? 1 : -1);
+    return true;
+  }
+  document.addEventListener("pointerdown", (e) => {
+    if (!e.target.closest("#neckCard") || state.neckMode === "notes") return;
+    neckSwipe = { x: e.clientX, y: e.clientY };
+  });
+  document.addEventListener("pointermove", (e) => {
+    if (!neckSwipe) return;
+    const dx = e.clientX - neckSwipe.x;
+    const dy = e.clientY - neckSwipe.y;
+    if (Math.abs(dx) < 52 || Math.abs(dx) < Math.abs(dy) * 1.3) return;
+    neckSwipe = null;
+    neckSwipeSwitch(dx);
+  });
+  document.addEventListener("pointerup", () => { neckSwipe = null; });
+  document.addEventListener("pointercancel", () => { neckSwipe = null; });
+
   /* ------------------------------------------------ события */
   document.addEventListener("click", (e) => {
     if (suppressClick) { suppressClick = false; return; }
@@ -2012,6 +2074,12 @@
         if (state.sound) playCurrent();
         break;
       }
+
+      case "necklabels":
+        state.neckLabels = el.dataset.v;
+        render(true);
+        flipNeck(1);
+        break;
 
       case "shapes-more":
         state.moreShapes = !state.moreShapes;
