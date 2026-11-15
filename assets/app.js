@@ -201,6 +201,24 @@
     return true;
   }
 
+  // отладочный снимок состояния по USB (adb + CDP)
+  window.__lad = () => ({
+    tab: state.tab,
+    mode: state.mode,
+    root: state.root,
+    chord: state.chord,
+    scale: state.scale,
+    neckMode: state.neckMode,
+    neckLabels: state.neckLabels,
+    topic: state.topic,
+    returnMode: state.returnMode ? state.returnMode.scale : null,
+    confirmTrain: !!state.confirmTrain,
+    trainStarted: train.started,
+    scroll: screenEl ? Math.round(screenEl.scrollTop) : -1,
+    swipeReady: typeof swipeZone === "function",
+    hScrollableChips: $$(".chips.is-scrollable").length
+  });
+
   window.ladBack = function () {
     if (state.confirmTrain) {
       state.confirmTrain = false;
@@ -1879,7 +1897,7 @@
   }
 
   /* ------------------------------------------------ колесо: тянем фигуру */
-  let suppressClick = false;
+  let suppressClick = null;
   const drag = { active: false, id: null, startAngle: 0, startRoot: 0, lastStep: 0, moved: false };
 
   function wheelAngle(e) {
@@ -1945,8 +1963,7 @@
     drag.lastStep = 0;
     document.body.classList.remove("is-dragging");
     if (moved) {
-      suppressClick = true;
-      setTimeout(() => { suppressClick = false; }, 80);
+      suppressClick = null;
       if (state.sound) playCurrent();
     }
   }
@@ -2003,8 +2020,9 @@
     wrap.classList.add("circle-slide");
   }
 
-  function runSwipe(zone, dx) {
-    suppressClick = true;
+  function runSwipe(zone, dx, src, x, y) {
+    document.body.dataset.lastSwipe = zone + "/" + src + "/" + Math.round(dx);
+    suppressClick = { until: Date.now() + 350, x: x || 0, y: y || 0 };
     if (zone === "mode") {
       if (switchModeBy(dx < 0 ? 1 : -1)) { render(true); animateWheel(dx < 0 ? 1 : -1); }
     } else if (cycleNeckLabels(dx)) {
@@ -2025,7 +2043,7 @@
     if (Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy) * 1.6) return;
     const zone = swipe.zone;
     swipe = null;
-    runSwipe(zone, dx);
+    runSwipe(zone, dx, "pointer", e.clientX, e.clientY);
   });
   document.addEventListener("pointerup", () => { swipe = null; });
   document.addEventListener("pointercancel", () => { swipe = null; });
@@ -2049,14 +2067,21 @@
     touchSwipe = null;
     swipe = null;
     if (e.cancelable) e.preventDefault();
-    runSwipe(zone, dx);
+    runSwipe(zone, dx, "touch", t.clientX, t.clientY);
   }, { passive: false });
   document.addEventListener("touchend", () => { touchSwipe = null; });
   document.addEventListener("touchcancel", () => { touchSwipe = null; });
 
   /* ------------------------------------------------ события */
   document.addEventListener("click", (e) => {
-    if (suppressClick) { suppressClick = false; return; }
+    // гасим только тот клик, который браузер сам сгенерировал в конце жеста:
+    // близко по месту и сразу по времени. Обычный тап рядом проходит.
+    if (suppressClick && Date.now() < suppressClick.until &&
+        Math.abs(e.clientX - suppressClick.x) < 26 &&
+        Math.abs(e.clientY - suppressClick.y) < 26) {
+      suppressClick = null;
+      return;
+    }
     const el = e.target.closest("[data-act]");
     if (!el) return;
     const act = el.dataset.act;
