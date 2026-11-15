@@ -1,8 +1,8 @@
 # GBG CIRCLES — приложение по теории музыки для гитаристов
 
-[![Android](https://github.com/DDaaBBrrOO/guitarchords/actions/workflows/android.yml/badge.svg)](https://github.com/DDaaBBrrOO/guitarchords/actions/workflows/android.yml)
+[![Android](https://github.com/DDaaBBrrOO/gbg-circles/actions/workflows/android.yml/badge.svg)](https://github.com/DDaaBBrrOO/gbg-circles/actions/workflows/android.yml)
 
-**Скачать APK:** [последний релиз](https://github.com/DDaaBBrrOO/guitarchords/releases/latest) — подписан ключом `CN=LAD`, ставится на Android 7.0+ без интернета и без разрешений.
+**Скачать APK:** [последний релиз](https://github.com/DDaaBBrrOO/gbg-circles/releases/latest) — подписан ключом `CN=LAD`, ставится на Android 7.0+ без интернета и без разрешений.
 
 Две темы одного Android-приложения: интервалы, построение аккордов, ноты в аккордах
 и гаммы. Всё ядро — хроматический круг из 12 нот, на котором одновременно живут
